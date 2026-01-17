@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTaskLogic } from './hooks/useTaskLogic';
 import { EisenhowerMatrix } from './components/views/dashboard/EisenhowerMatrix';
 import { TaskListView } from './components/views/dashboard/TaskListView';
@@ -10,6 +10,7 @@ import { ReportView } from './components/views/reports/ReportView';
 import { CelebrationOverlay } from './components/ui/CelebrationOverlay';
 import { TaskStatus } from './types';
 import { SOUND_CONFIG } from './constants';
+import { isFromToday } from './actions/taskTimeUtils';
 
 const App: React.FC = () => {
   const { tasks, addTask, updateTaskStatus, updateTaskTitle, updateTaskQuadrant, progress } = useTaskLogic();
@@ -28,6 +29,18 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('app_sound_url');
     return saved !== null ? saved : SOUND_CONFIG.TASK_DONE;
   });
+
+  // Logic to filter tasks for the active work view
+  const visibleTasks = useMemo(() => {
+    return tasks.filter(task => {
+      const isToday = isFromToday(task.createdAt);
+      const isUnfinished = task.status === TaskStatus.PENDING || task.status === TaskStatus.DOING;
+      
+      // Keep if it was created today OR if it's an ongoing/new task from previous days
+      // This automatically hides DONE or CANCELLED tasks from yesterday or older
+      return isToday || isUnfinished;
+    });
+  }, [tasks]);
 
   // Persist volume changes
   useEffect(() => {
@@ -105,14 +118,14 @@ const App: React.FC = () => {
             <main className="lg:col-span-8 w-full">
               {viewMode === 'matrix' ? (
                 <EisenhowerMatrix 
-                  tasks={tasks} 
+                  tasks={visibleTasks} 
                   onUpdateStatus={handleUpdateStatus} 
                   onUpdateTitle={updateTaskTitle}
                   onUpdateQuadrant={updateTaskQuadrant}
                 />
               ) : (
                 <TaskListView 
-                  tasks={tasks} 
+                  tasks={visibleTasks} 
                   onUpdateStatus={handleUpdateStatus} 
                   onUpdateTitle={updateTaskTitle}
                 />
@@ -121,7 +134,12 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <ReportView tasks={tasks} />
+            {/* Reports always show the full history */}
+            <ReportView 
+              tasks={tasks} 
+              onUpdateStatus={handleUpdateStatus} 
+              onUpdateTitle={updateTaskTitle}
+            />
           </div>
         )}
       </div>

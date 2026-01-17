@@ -23,6 +23,23 @@ export const formatInputDateTime = (date: Date): string => {
   return `${hours}:${minutes} ${day}/${month}`;
 };
 
+export const isFromToday = (timeStr: string): boolean => {
+  try {
+    const parts = timeStr.split(' ');
+    if (parts.length < 2) return false;
+    const taskDate = parts[1]; // "DD/MM"
+    
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const todayDate = `${day}/${month}`;
+    
+    return taskDate === todayDate;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const isTimePassed = (timeStr: string): boolean => {
   try {
     const [timePart, datePart] = timeStr.split(' ');
@@ -30,7 +47,7 @@ export const isTimePassed = (timeStr: string): boolean => {
     const [day, month] = datePart.split('/').map(Number);
     
     const now = new Date();
-    // Assuming current year based on UI copyright (2026) or dynamic current year
+    // Assuming current year
     const year = now.getFullYear(); 
     const deadline = new Date(year, month - 1, day, hours, minutes);
     

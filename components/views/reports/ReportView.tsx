@@ -3,12 +3,15 @@ import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock, RotateCcw, ListChecks, AlertCircle, Trophy } from 'lucide-react';
 import { Task, TaskStatus, Quadrant } from '../../../types';
 import { QUADRANT_CONFIG } from '../../../constants';
+import { TaskCard } from '../tasks/TaskCard';
 
 interface ReportViewProps {
   tasks: Task[];
+  onUpdateStatus: (id: string, status: TaskStatus) => void;
+  onUpdateTitle: (id: string, title: string) => void;
 }
 
-export const ReportView: React.FC<ReportViewProps> = ({ tasks }) => {
+export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, onUpdateTitle }) => {
   const [activePeriod, setActivePeriod] = useState('Tuần');
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   
@@ -220,40 +223,14 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks }) => {
               {expandedDate === group.rawDate && (
                 <div className="px-6 md:px-10 pb-6 bg-indigo-50/5">
                   <div className="flex flex-col gap-4 pt-4">
-                    {group.tasks.map((task) => {
-                      const quadConfig = QUADRANT_CONFIG[task.quadrant];
-                      const isDone = task.status === TaskStatus.DONE;
-                      const isCancelled = task.status === TaskStatus.CANCELLED;
-                      const isDoing = task.status === TaskStatus.DOING;
-
-                      return (
-                        <div key={task.id} className="flex items-start md:items-center justify-between py-4 border-b border-gray-100/60 last:border-0 group transition-all">
-                          <div className="flex items-start md:items-center gap-4 md:gap-5 min-w-0">
-                            <div className={`mt-1 md:mt-0 transition-colors shrink-0 ${isDone ? 'text-green-500' : isCancelled ? 'text-red-400' : isDoing ? 'text-indigo-500 animate-pulse' : 'text-gray-300'}`}>
-                              {isDone ? <CheckCircle2 size={20} className="md:w-[22px] md:h-[22px]" /> : isCancelled ? <XCircle size={20} className="md:w-[22px] md:h-[22px]" /> : <Clock size={20} className="md:w-[22px] md:h-[22px]" />}
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className={`text-[13px] md:text-[14px] font-black transition-all truncate ${isDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                                {task.title}
-                              </span>
-                              <div className="flex items-center gap-2 md:gap-2.5 mt-2 flex-wrap">
-                                 {isDone && <span className="bg-green-50 text-green-600 text-[8px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded-md uppercase border border-green-100 shadow-sm">XONG</span>}
-                                 {isCancelled && <span className="bg-red-50 text-red-600 text-[8px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded-md uppercase border border-red-100 shadow-sm">HỦY</span>}
-                                 {isDoing && <span className="bg-indigo-50 text-indigo-600 text-[8px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded-md uppercase border border-indigo-100 shadow-sm">LÀM</span>}
-                                 
-                                 <span className={`${quadConfig.badgeColor} text-[8px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded-md uppercase border opacity-80`}>
-                                   {quadConfig.title.split(' ')[0]}
-                                 </span>
-                                 <div className="flex items-center gap-1 text-[9px] md:text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 md:px-2 py-0.5 rounded-md border border-gray-100">
-                                   <Clock size={10} strokeWidth={3} /> 
-                                   <span>{task.startTime.split(' ')[0]}</span>
-                                 </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {group.tasks.map((task) => (
+                      <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onUpdateStatus={onUpdateStatus}
+                        onUpdateTitle={onUpdateTitle}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
