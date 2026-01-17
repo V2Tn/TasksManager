@@ -11,6 +11,7 @@ import { CelebrationOverlay } from './components/ui/CelebrationOverlay';
 import { TaskStatus } from './types';
 import { SOUND_CONFIG } from './constants';
 import { isFromToday } from './actions/taskTimeUtils';
+import { AlertTriangle, XCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const { tasks, addTask, updateTaskStatus, updateTaskTitle, updateTaskQuadrant, progress } = useTaskLogic();
@@ -37,7 +38,6 @@ const App: React.FC = () => {
       const isUnfinished = task.status === TaskStatus.PENDING || task.status === TaskStatus.DOING;
       
       // Keep if it was created today OR if it's an ongoing/new task from previous days
-      // This automatically hides DONE or CANCELLED tasks from yesterday or older
       return isToday || isUnfinished;
     });
   }, [tasks]);
@@ -100,7 +100,7 @@ const App: React.FC = () => {
         {activeTab === 'tasks' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-500">
             
-            {/* Sidebar - Shows left on desktop */}
+            {/* Sidebar */}
             <aside className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-8">
               <StatCard 
                 done={progress.done} 
@@ -114,8 +114,24 @@ const App: React.FC = () => {
               <TaskForm onAdd={addTask} />
             </aside>
 
-            {/* Main Content (Matrix or List) */}
-            <main className="lg:col-span-8 w-full">
+            {/* Main Content */}
+            <main className="lg:col-span-8 w-full flex flex-col gap-6">
+              {/* Overdue Alert Notification - Triggers at 1 or more backlog tasks */}
+              {progress.backlog >= 1 && (
+                <div className="bg-red-50 border border-red-100 rounded-3xl p-5 flex items-center gap-4 shadow-xl shadow-red-100/50 animate-in slide-in-from-top-4 fade-in duration-500 ring-2 ring-red-50/50">
+                  <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-red-200">
+                    <AlertTriangle size={24} className="animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-[15px] font-black text-red-700 leading-tight">Cảnh báo: Công việc tồn đọng!</h3>
+                    <p className="text-[12px] font-bold text-red-600/70 mt-0.5 uppercase tracking-tight">
+                      Bạn đang có <span className="text-red-800 font-black px-1.5 py-0.5 bg-red-100 rounded-lg mx-0.5">{progress.backlog}</span> công việc đã quá hạn. Hãy ưu tiên xử lý ngay!
+                    </p>
+                  </div>
+                  <XCircle size={20} className="text-red-200 hover:text-red-400 cursor-help transition-colors" />
+                </div>
+              )}
+
               {viewMode === 'matrix' ? (
                 <EisenhowerMatrix 
                   tasks={visibleTasks} 
@@ -134,7 +150,6 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Reports always show the full history */}
             <ReportView 
               tasks={tasks} 
               onUpdateStatus={handleUpdateStatus} 
@@ -144,7 +159,6 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Celebration Effect Component */}
       <CelebrationOverlay 
         isVisible={showCelebration} 
         onFinished={() => setShowCelebration(false)} 

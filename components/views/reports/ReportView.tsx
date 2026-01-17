@@ -50,7 +50,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
     const now = new Date();
     
     if (activePeriod === 'Hôm nay') {
-      // 24 Hours
       for (let i = 0; i < 24; i++) {
         const hourLabel = `${i}h`;
         const dayMonth = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -67,13 +66,14 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         });
       }
     } else if (activePeriod === 'Tuần') {
-      // Current Week (Mon to Sun)
       const monday = new Date(now);
       const day = now.getDay();
       const diff = now.getDate() - day + (day === 0 ? -6 : 1);
       monday.setDate(diff);
 
-      const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+      const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      const fullDays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+      
       for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
@@ -81,18 +81,16 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         const dayTasks = tasks.filter(t => getDateFromTaskStr(t.startTime) === dateStr);
         result.push({
           label: days[i],
-          fullLabel: `${days[i]} (${dateStr})`,
+          fullLabel: `${fullDays[i]} (${dateStr})`,
           total: dayTasks.length,
           done: dayTasks.filter(t => t.status === TaskStatus.DONE).length
         });
       }
     } else if (activePeriod === 'Tháng') {
-      // 12 Months of the current year
       const monthNames = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
       const currentYear = now.getFullYear();
       for (let i = 0; i < 12; i++) {
         const monthYearSuffix = `/${String(i + 1).padStart(2, '0')}`;
-        // Lọc task trong tháng i+1 của năm hiện tại
         const monthTasks = tasks.filter(t => t.startTime.includes(monthYearSuffix));
         
         result.push({
@@ -103,24 +101,18 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         });
       }
     } else if (activePeriod === 'Năm') {
-      // Last 5 years
       const currentYear = now.getFullYear();
+      // Hiển thị năm hiện tại và 4 năm trước
       for (let i = 4; i >= 0; i--) {
         const year = currentYear - i;
-        // Kiểm tra task dựa trên năm (giả định năm nằm trong dữ liệu hoặc hệ thống)
-        // Lưu ý: Ở bản hiện tại timeStr chỉ có HH:mm DD/MM. Ta giả định task của năm nay.
-        // Để demo, ta sẽ lấy dữ liệu tổng hợp.
-        const yearTasks = tasks.filter(t => {
-          // Vì dữ liệu hiện tại không lưu năm, ta coi tất cả là năm nay.
-          // Trong thực tế cần update types.ts để lưu year.
-          return i === 0 ? true : false; 
-        });
+        // Vì dữ liệu task hiện tại không lưu năm, tạm coi mọi task là của năm nay
+        const yearTasks = (i === 0) ? tasks : [];
 
         result.push({
           label: year.toString(),
           fullLabel: `Năm ${year}`,
-          total: i === 0 ? tasks.length : 0,
-          done: i === 0 ? tasks.filter(t => t.status === TaskStatus.DONE).length : 0
+          total: yearTasks.length,
+          done: yearTasks.filter(t => t.status === TaskStatus.DONE).length
         });
       }
     }
@@ -143,7 +135,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
               setActivePeriod(p);
               setHoveredIdx(null);
             }}
-            className={`px-4 md:px-5 py-2 text-[11px] md:text-sm font-bold rounded-lg transition-all ${
+            className={`px-4 md:px-5 py-2 text-[11px] md:text-sm font-black rounded-lg transition-all ${
               activePeriod === p ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
@@ -172,22 +164,21 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
       {/* Interactive Chart Area */}
       <div className="bg-white rounded-[24px] p-4 md:p-10 border border-gray-50 shadow-xl shadow-gray-100/50 overflow-visible relative">
         <div className="flex items-center justify-between mb-8">
-           <h3 className="text-[14px] md:text-[15px] font-black text-gray-800">Biểu đồ tiến độ ({activePeriod})</h3>
+           <h3 className="text-[14px] md:text-[15px] font-black text-gray-800 uppercase tracking-tight">Biểu đồ tiến độ ({activePeriod})</h3>
            <div className="flex items-center gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-indigo-600 rounded-full"></span> Xong</div>
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-slate-100 rounded-full border border-gray-200"></span> Tổng</div>
            </div>
         </div>
         
-        {/* pt-32 ensures ample space for tooltips to avoid clipping */}
-        <div className="relative pt-32 pb-8 px-2">
-          <div className="h-64 md:h-80 flex items-end justify-between gap-1 md:gap-3 relative min-w-full">
+        {/* pt-32 ensures space for the tooltip at the top */}
+        <div className="relative pt-32 pb-8 px-2 overflow-visible">
+          <div className="h-64 md:h-80 flex items-end justify-between gap-1 md:gap-3 relative min-w-full overflow-visible">
             {chartData.map((data, idx) => {
               const totalH = (data.total / maxVal) * 100;
               const doneH = (data.done / maxVal) * 100;
               const isHovered = hoveredIdx === idx;
               
-              // Smart alignment for tooltips at the edges to prevent horizontal clipping
               const isLast = idx >= chartData.length - 2;
               const isFirst = idx <= 1;
               const tooltipPosClass = isLast ? 'right-0' : isFirst ? 'left-0' : 'left-1/2 -translate-x-1/2';
@@ -196,29 +187,29 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
               return (
                 <div 
                   key={idx} 
-                  className="flex-1 flex flex-col items-center justify-end h-full gap-3 relative group"
+                  className="flex-1 flex flex-col items-center justify-end h-full gap-3 relative group overflow-visible"
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                 >
-                  {/* Tooltip on Hover - Now with Z-INDEX 100 and absolute positioning */}
+                  {/* Tooltip on Hover */}
                   {isHovered && (
-                    <div className={`absolute bottom-[calc(100%+16px)] ${tooltipPosClass} bg-[#1e293b] text-white p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-[100] min-w-[150px] animate-in fade-in zoom-in duration-200 border border-white/10`}>
+                    <div className={`absolute bottom-[calc(100%+24px)] ${tooltipPosClass} bg-[#1e293b] text-white p-4 rounded-2xl shadow-[0_25px_50px_rgba(0,0,0,0.4)] z-[999] min-w-[160px] animate-in fade-in zoom-in duration-200 border border-white/10`}>
                       <div className="text-[10px] font-black text-indigo-400 uppercase mb-3 border-b border-white/5 pb-2 whitespace-nowrap tracking-wider">
                         {data.fullLabel}
                       </div>
                       <div className="flex flex-col gap-2.5">
                         <div className="flex justify-between items-center gap-6">
                            <span className="text-[11px] font-bold opacity-60">Tổng cộng:</span>
-                           <span className="text-[13px] font-black">{data.total}</span>
+                           <span className="text-[14px] font-black">{data.total}</span>
                         </div>
                         <div className="flex justify-between items-center gap-6">
-                           <span className="text-[11px] font-bold text-green-400">Hoàn thành:</span>
-                           <span className="text-[13px] font-black text-green-400">{data.done}</span>
+                           <span className="text-[11px] font-bold text-green-400">Đã xong:</span>
+                           <span className="text-[14px] font-black text-green-400">{data.done}</span>
                         </div>
                         {data.total > 0 && (
                            <div className="mt-1 pt-2 border-t border-white/5 flex justify-between items-center">
                               <span className="text-[9px] font-bold opacity-40 uppercase">Tỷ lệ:</span>
-                              <span className="text-[11px] font-black text-indigo-300">{Math.round((data.done/data.total)*100)}%</span>
+                              <span className="text-[12px] font-black text-indigo-300">{Math.round((data.done/data.total)*100)}%</span>
                            </div>
                         )}
                       </div>
@@ -228,27 +219,16 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
 
                   {/* The Bar Columns */}
                   <div className={`w-full flex items-end justify-center gap-0.5 md:gap-1.5 h-full transition-all duration-300 ${isHovered ? 'opacity-100 scale-x-110' : 'opacity-70'}`}>
-                    {/* Done Bar */}
                     <div 
-                      className={`w-3 md:w-8 bg-indigo-600 rounded-t-lg transition-all duration-500 relative ${isHovered ? 'shadow-[0_0_20px_rgba(79,70,229,0.4)] brightness-125' : ''}`} 
+                      className={`w-3 md:w-8 bg-indigo-600 rounded-t-lg transition-all duration-500 relative ${isHovered ? 'shadow-[0_0_20px_rgba(79,70,229,0.5)] brightness-125' : ''}`} 
                       style={{height: `${Math.max(doneH, 2)}%`}}
-                    >
-                       {isHovered && data.done > 0 && (
-                         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-indigo-600">{data.done}</div>
-                       )}
-                    </div>
-                    {/* Total Bar */}
+                    />
                     <div 
-                      className={`w-3 md:w-8 bg-slate-100 border-x border-t border-gray-100 rounded-t-lg transition-all duration-500 ${isHovered ? 'bg-slate-200' : ''}`} 
+                      className={`w-3 md:w-8 bg-slate-100 border-x border-t border-gray-100 rounded-t-lg transition-all duration-500 ${isHovered ? 'bg-slate-200 border-slate-200' : ''}`} 
                       style={{height: `${Math.max(totalH, 2)}%`}}
-                    >
-                       {isHovered && data.total > data.done && (
-                         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-gray-400">{data.total}</div>
-                       )}
-                    </div>
+                    />
                   </div>
                   
-                  {/* Label below the bar */}
                   <span className={`text-[10px] md:text-[12px] font-black transition-all duration-300 mt-1 ${isHovered ? 'text-indigo-600 scale-110' : 'text-gray-400'} ${data.label === '' ? 'opacity-0' : 'opacity-100'}`}>
                     {data.label}
                   </span>
