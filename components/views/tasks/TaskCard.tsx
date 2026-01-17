@@ -45,7 +45,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.effectAllowed = 'move';
-    // Add a ghost class to the element during drag
     const target = e.currentTarget as HTMLElement;
     setTimeout(() => {
       target.style.opacity = '0.4';
@@ -68,7 +67,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
       draggable={!isEditing}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`group relative bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 cursor-grab active:cursor-grabbing ${isEditing ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-100'}`}
+      className={`group relative border rounded-xl p-4 transition-all duration-300 cursor-grab active:cursor-grabbing ${
+        isEditing 
+          ? 'bg-white border-indigo-500 ring-2 ring-indigo-50 z-10 shadow-lg' 
+          : isDone 
+            ? 'bg-slate-50/40 border-slate-100 shadow-none' 
+            : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
+      }`}
     >
       <div className="flex flex-col gap-3">
         {isEditing ? (
@@ -102,74 +107,81 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
           <>
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
-                <h4 className={`text-[14px] font-semibold text-gray-800 leading-snug group-hover:text-indigo-600 transition-colors ${isDone ? 'line-through text-gray-400' : ''}`}>
+                <h4 className={`text-[14px] leading-snug transition-colors ${
+                  isDone 
+                    ? 'line-through text-slate-400 font-bold' 
+                    : 'text-slate-900 font-black group-hover:text-indigo-600'
+                }`}>
                   {task.title}
                 </h4>
               </div>
               
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="p-1.5 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
-                >
-                  <Pencil size={12} />
-                </button>
+                {!isDone && (
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="p-1.5 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
                 <div className="p-1.5 text-gray-300 cursor-grab active:cursor-grabbing">
                   <GripVertical size={14} />
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center text-[9px] text-gray-400 gap-x-2 gap-y-1">
-              <div className="flex items-center shrink-0">
-                <Clock size={10} className="mr-1 opacity-60" />
+            {/* Time info section */}
+            <div className={`flex flex-wrap items-center text-[9px] gap-x-2 gap-y-1 transition-opacity ${isDone ? 'text-slate-400' : 'text-slate-700'}`}>
+              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
+                <Clock size={10} className={`mr-1 ${isDone ? 'opacity-40' : 'opacity-90 text-slate-900'}`} />
                 <span>Tạo: {task.startTime}</span>
               </div>
-              <span className="opacity-20 hidden sm:inline">|</span>
-              <div className="flex items-center shrink-0">
-                <RotateCcw size={10} className="mr-1 opacity-60 text-indigo-400" />
+              <span className="opacity-20 hidden sm:inline text-slate-300">|</span>
+              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
+                <RotateCcw size={10} className={`mr-1 ${isDone ? 'opacity-40 text-indigo-300' : 'opacity-90 text-indigo-600'}`} />
                 <span>Cập nhật: {task.updatedAt}</span>
               </div>
-              <span className="opacity-20 hidden sm:inline">|</span>
-              <div className="flex items-center shrink-0">
-                <Calendar size={10} className="mr-1 opacity-60 text-red-300" />
-                <span className="text-red-400/80 font-medium">Hạn: {task.endTime}</span>
+              <span className="opacity-20 hidden sm:inline text-slate-300">|</span>
+              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
+                <Calendar size={10} className={`mr-1 ${isDone ? 'opacity-40 text-red-300' : 'opacity-90 text-red-600'}`} />
+                <span className={`${isDone ? '' : 'text-red-700'}`}>Hạn: {task.endTime}</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between mt-1">
               <div className="flex flex-wrap items-center gap-1.5">
                   {isOverdue && (
-                      <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[10px] font-bold border border-red-100 flex items-center gap-1 shadow-sm">
+                      <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-red-100 flex items-center gap-1 shadow-sm">
                         <AlertCircle size={10} />
                         Tồn đọng
                       </span>
                   )}
                   
                   {task.status === TaskStatus.DOING && (
-                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md text-[10px] font-bold border border-indigo-100 flex items-center gap-1">
+                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-indigo-100 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
                         Đang làm
                       </span>
                   )}
                   {task.status === TaskStatus.PENDING && (
-                       <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded-md text-[10px] font-bold border border-blue-100 flex items-center gap-1">
+                       <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-blue-100 flex items-center gap-1">
                          Mới
                        </span>
                   )}
                   {task.status === TaskStatus.CANCELLED && (
-                       <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[10px] font-bold border border-gray-200">
+                       <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-gray-200">
                          Đã hủy
                        </span>
                   )}
                   {task.status === TaskStatus.DONE && (
-                       <span className="bg-green-50 text-green-500 px-2 py-0.5 rounded-md text-[10px] font-bold border border-green-100">
+                       <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-green-100 shadow-sm">
                          Hoàn thành
                        </span>
                   )}
               </div>
 
-              <div className="flex gap-1">
+              <div className={`flex gap-1 ${isDone ? 'opacity-40' : 'opacity-100'}`}>
                 {actions.includes('DONE') && (
                   <button 
                     onClick={() => onUpdateStatus(task.id, TaskStatus.DONE)}
