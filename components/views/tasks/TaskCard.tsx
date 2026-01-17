@@ -19,7 +19,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      // Set cursor to end of text
       const length = inputRef.current.value.length;
       inputRef.current.setSelectionRange(length, length);
     }
@@ -58,8 +57,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
 
   const actions = getAvailableActions(task.status);
   const isDone = task.status === TaskStatus.DONE;
-  
-  // Logic: Show "Tồn đọng" if deadline passed and task is not done
   const isOverdue = isTimePassed(task.endTime) && !isDone;
 
   return (
@@ -71,7 +68,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
         isEditing 
           ? 'bg-white border-indigo-500 ring-2 ring-indigo-50 z-10 shadow-lg' 
           : isDone 
-            ? 'bg-slate-50/40 border-slate-100 shadow-none' 
+            ? 'bg-slate-50/50 border-slate-100 shadow-none' 
             : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
       }`}
     >
@@ -91,15 +88,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
                 onClick={handleTitleSubmit}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f0fdf4] text-[#16a34a] rounded-md text-[12px] font-bold hover:bg-[#dcfce7] transition-colors border border-green-100 shadow-sm"
               >
-                <Check size={14} strokeWidth={3} />
-                Lưu
+                <Check size={14} strokeWidth={3} /> Lưu
               </button>
               <button 
                 onClick={handleCancel}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f9fafb] text-[#4b5563] rounded-md text-[12px] font-bold hover:bg-[#f3f4f6] transition-colors border border-gray-100 shadow-sm"
               >
-                <X size={14} strokeWidth={3} />
-                Hủy
+                <X size={14} strokeWidth={3} /> Hủy
               </button>
             </div>
           </div>
@@ -131,7 +126,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               </div>
             </div>
 
-            {/* Time info section */}
             <div className={`flex flex-wrap items-center text-[9px] gap-x-2 gap-y-1 transition-opacity ${isDone ? 'text-slate-400' : 'text-slate-700'}`}>
               <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
                 <Clock size={10} className={`mr-1 ${isDone ? 'opacity-40' : 'opacity-90 text-slate-900'}`} />
@@ -153,71 +147,41 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               <div className="flex flex-wrap items-center gap-1.5">
                   {isOverdue && (
                       <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-red-100 flex items-center gap-1 shadow-sm">
-                        <AlertCircle size={10} />
-                        Tồn đọng
+                        <AlertCircle size={10} /> Tồn đọng
                       </span>
                   )}
-                  
                   {task.status === TaskStatus.DOING && (
                       <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-indigo-100 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                        Đang làm
+                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span> Đang làm
                       </span>
                   )}
                   {task.status === TaskStatus.PENDING && (
-                       <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-blue-100 flex items-center gap-1">
-                         Mới
-                       </span>
+                       <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-blue-100 flex items-center gap-1"> Mới </span>
                   )}
                   {task.status === TaskStatus.CANCELLED && (
-                       <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-gray-200">
-                         Đã hủy
-                       </span>
+                       <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-gray-200"> Đã hủy </span>
                   )}
                   {task.status === TaskStatus.DONE && (
-                       <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-green-100 shadow-sm">
-                         Hoàn thành
-                       </span>
+                       <span className="bg-[#f0fdf4] text-[#16a34a] px-2 py-0.5 rounded-md text-[10px] font-black border border-[#dcfce7] shadow-sm"> Hoàn thành </span>
                   )}
               </div>
 
-              <div className={`flex gap-1 ${isDone ? 'opacity-40' : 'opacity-100'}`}>
-                {actions.includes('DONE') && (
-                  <button 
-                    onClick={() => onUpdateStatus(task.id, TaskStatus.DONE)}
-                    className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-green-600 hover:bg-green-50 hover:border-green-100 transition-all"
-                    title="Hoàn thành"
-                  >
-                    <Check size={14} />
-                  </button>
-                )}
-                {actions.includes('START') && (
-                  <button 
-                    onClick={() => onUpdateStatus(task.id, TaskStatus.DOING)}
-                    className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 transition-all"
-                    title="Bắt đầu"
-                  >
-                    <Clock size={14} />
-                  </button>
-                )}
-                {actions.includes('CANCEL') && (
-                  <button 
-                    onClick={() => onUpdateStatus(task.id, TaskStatus.CANCELLED)}
-                    className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all"
-                    title="Hủy"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-                {actions.includes('REDO') && (
-                  <button 
-                    onClick={() => onUpdateStatus(task.id, TaskStatus.PENDING)}
-                    className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-100 transition-all"
-                    title="Làm lại"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                )}
+              <div className={`flex gap-1 ${isDone ? 'opacity-50' : 'opacity-100'}`}>
+                {actions.map(action => {
+                  if (action === 'DONE') return (
+                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.DONE)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-green-600 hover:bg-green-50 transition-all"><Check size={14} /></button>
+                  );
+                  if (action === 'START') return (
+                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.DOING)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"><Clock size={14} /></button>
+                  );
+                  if (action === 'CANCEL') return (
+                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.CANCELLED)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"><X size={14} /></button>
+                  );
+                  if (action === 'REDO') return (
+                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.PENDING)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-all"><RotateCcw size={14} /></button>
+                  );
+                  return null;
+                })}
               </div>
             </div>
           </>
