@@ -1,0 +1,5 @@
+{
+  "name": "Eisenhower Master Todo",
+  "description": "A high-performance modular Eisenhower Matrix todo application built with React and TypeScript, featuring a state-machine driven task management system.",
+  "requestFramePermissions": []
+}
