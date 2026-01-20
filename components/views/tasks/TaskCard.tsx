@@ -42,6 +42,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   };
 
   const handleDragStart = (e: React.DragEvent) => {
+    // Only drag if not editing and not clicking a button
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.effectAllowed = 'move';
     const target = e.currentTarget as HTMLElement;
@@ -59,12 +60,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   const isDone = task.status === TaskStatus.DONE;
   const isOverdue = isTimePassed(task.endTime) && !isDone;
 
+  // Helper to prevent drag logic when interacting with buttons (Fixes 2-click issue on mobile)
+  const stopProp = (e: React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
     <div 
       draggable={!isEditing}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`group relative border rounded-xl p-4 transition-all duration-300 cursor-grab active:cursor-grabbing ${
+      className={`group relative border rounded-xl p-4 transition-all duration-300 cursor-grab active:cursor-grabbing touch-none select-none ${
         isEditing 
           ? 'bg-white border-indigo-500 ring-2 ring-indigo-50 z-10 shadow-lg' 
           : isDone 
@@ -81,18 +87,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPointerDown={stopProp}
               className="w-full text-[14px] font-bold text-gray-900 bg-white border border-indigo-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-4 focus:ring-indigo-50 outline-none transition-all shadow-sm"
             />
             <div className="flex items-center gap-2">
               <button 
+                onPointerDown={stopProp}
                 onClick={handleTitleSubmit}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f0fdf4] text-[#16a34a] rounded-md text-[12px] font-bold hover:bg-[#dcfce7] transition-colors border border-green-100 shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f0fdf4] text-[#16a34a] rounded-md text-[12px] font-black hover:bg-[#dcfce7] transition-colors border border-green-100 shadow-sm"
               >
                 <Check size={14} strokeWidth={3} /> Lưu
               </button>
               <button 
+                onPointerDown={stopProp}
                 onClick={handleCancel}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f9fafb] text-[#4b5563] rounded-md text-[12px] font-bold hover:bg-[#f3f4f6] transition-colors border border-gray-100 shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f9fafb] text-[#4b5563] rounded-md text-[12px] font-black hover:bg-[#f3f4f6] transition-colors border border-gray-100 shadow-sm"
               >
                 <X size={14} strokeWidth={3} /> Hủy
               </button>
@@ -114,6 +123,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                 {!isDone && (
                   <button 
+                    onPointerDown={stopProp}
                     onClick={() => setIsEditing(true)}
                     className="p-1.5 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
                   >
@@ -168,17 +178,54 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
 
               <div className={`flex gap-1 ${isDone ? 'opacity-50' : 'opacity-100'}`}>
                 {actions.map(action => {
+                  const handleAction = (e: React.MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (action === 'DONE') onUpdateStatus(task.id, TaskStatus.DONE);
+                    if (action === 'START') onUpdateStatus(task.id, TaskStatus.DOING);
+                    if (action === 'CANCEL') onUpdateStatus(task.id, TaskStatus.CANCELLED);
+                    if (action === 'REDO') onUpdateStatus(task.id, TaskStatus.PENDING);
+                  };
+
                   if (action === 'DONE') return (
-                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.DONE)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-green-600 hover:bg-green-50 transition-all"><Check size={14} /></button>
+                    <button 
+                      key={action} 
+                      onPointerDown={stopProp}
+                      onClick={handleAction} 
+                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-green-600 hover:bg-green-50 transition-all cursor-pointer"
+                    >
+                      <Check size={14} />
+                    </button>
                   );
                   if (action === 'START') return (
-                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.DOING)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"><Clock size={14} /></button>
+                    <button 
+                      key={action} 
+                      onPointerDown={stopProp}
+                      onClick={handleAction} 
+                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
+                    >
+                      <Clock size={14} />
+                    </button>
                   );
                   if (action === 'CANCEL') return (
-                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.CANCELLED)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"><X size={14} /></button>
+                    <button 
+                      key={action} 
+                      onPointerDown={stopProp}
+                      onClick={handleAction} 
+                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
                   );
                   if (action === 'REDO') return (
-                    <button key={action} onClick={() => onUpdateStatus(task.id, TaskStatus.PENDING)} className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-all"><RotateCcw size={14} /></button>
+                    <button 
+                      key={action} 
+                      onPointerDown={stopProp}
+                      onClick={handleAction} 
+                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-all cursor-pointer"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
                   );
                   return null;
                 })}

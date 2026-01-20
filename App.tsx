@@ -118,7 +118,7 @@ const App: React.FC = () => {
             <main className="lg:col-span-8 w-full flex flex-col gap-6">
               {/* Overdue Alert Notification - Triggers at 1 or more backlog tasks */}
               {progress.backlog >= 1 && (
-                <div className="bg-red-50 border border-red-100 rounded-3xl p-5 flex items-center gap-4 shadow-xl shadow-red-100/50 animate-in slide-in-from-top-4 fade-in duration-500 ring-2 ring-red-50/50">
+                <div className="bg-red-50 border border-red-100 rounded-[32px] p-5 flex items-center gap-4 shadow-xl shadow-red-100/50 animate-in slide-in-from-top-4 fade-in duration-500 ring-2 ring-red-50/50">
                   <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-red-200">
                     <AlertTriangle size={24} className="animate-pulse" />
                   </div>
