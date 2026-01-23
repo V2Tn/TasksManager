@@ -204,7 +204,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
                     return null;
                   })
                 ) : (
-                  <span className="text-[10px] font-[900] text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 shadow-inner">View Only</span>
+                  <span className="text-[10px] font-[900] text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 shadow-inner">Theo dõi</span>
                 )}
               </div>
             </div>

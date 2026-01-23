@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, User as UserIcon, ShieldCheck, AlertCircle, Eye, EyeOff, X, Zap, Loader2 } from 'lucide-react';
+import { Lock, User as UserIcon, ShieldCheck, AlertCircle, Eye, EyeOff, X, Zap, Loader2, RefreshCw } from 'lucide-react';
 import { User, UserRole, StaffMember } from '../../../types';
 import { syncStaffDataFromServer } from '../../../actions/authActions';
 
@@ -21,6 +21,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const [recentAccounts, setRecentAccounts] = useState<RecentAccount[]>([]);
@@ -55,65 +56,76 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim() || !password.trim()) return;
+
     setIsLoading(true);
     setError(null);
+    setSyncStatus(null);
 
     try {
-      let savedStaff = localStorage.getItem('app_staff_list_v1');
-      let staffList: StaffMember[] = savedStaff ? JSON.parse(savedStaff) : [];
-
-      if (staffList.length === 0 && username.toLowerCase() !== 'admin') {
-        try {
-          staffList = await syncStaffDataFromServer();
-        } catch (syncErr: any) {
-          setError("Hệ thống chưa sẵn sàng, vui lòng kiểm tra kết nối mạng hoặc liên hệ quản trị viên.");
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      let loggedUser: User | null = null;
-
-      if (username.toLowerCase() === 'admin' && password === 'admin') {
-        loggedUser = {
+      const isTryingAdmin = username.toLowerCase() === 'admin';
+      
+      // 1. Kiểm tra tài khoản admin cứng trước
+      if (isTryingAdmin && password === 'admin') {
+        onLogin({
           id: 1,
           username: 'admin',
           fullName: 'Quản trị viên',
           role: UserRole.ADMIN,
           isManager: true
-        };
-      } else {
-        const foundUser = staffList.find(u => 
-          u.username.toLowerCase() === username.toLowerCase() && 
-          u.password === password
-        );
+        });
+        return;
+      }
 
-        if (foundUser) {
-          if (!foundUser.active) {
-            setError("Tài khoản của bạn hiện đang bị khóa.");
+      // 2. Xử lý tài khoản nhân viên
+      let savedStaff = localStorage.getItem('app_staff_list_v1');
+      let staffList: StaffMember[] = savedStaff ? JSON.parse(savedStaff) : [];
+
+      // Logic mới: Nếu không thấy user trong máy -> Tự động sync từ server để tìm user mới nhất
+      const foundInCache = staffList.find(u => u.username.toLowerCase() === username.toLowerCase());
+      
+      if (!foundInCache && !isTryingAdmin) {
+        setSyncStatus("Đang cập nhật danh sách nhân sự mới nhất...");
+        try {
+          staffList = await syncStaffDataFromServer();
+        } catch (syncErr: any) {
+          // Chỉ báo lỗi nếu sync thất bại VÀ bộ nhớ vẫn trống
+          if (staffList.length === 0) {
+            setError(syncErr.message || "Không thể kết nối máy chủ để kiểm tra tài khoản.");
             setIsLoading(false);
             return;
           }
-
-          loggedUser = {
-            id: Number(foundUser.id),
-            username: foundUser.username,
-            fullName: foundUser.fullName,
-            role: foundUser.role,
-            isManager: foundUser.isManager
-          };
         }
       }
 
-      if (loggedUser) {
-        onLogin(loggedUser);
+      // 3. Thực hiện kiểm tra đăng nhập sau khi đã sync (nếu cần)
+      const foundUser = staffList.find(u => 
+        u.username.toLowerCase() === username.toLowerCase() && 
+        u.password === password
+      );
+
+      if (foundUser) {
+        if (!foundUser.active) {
+          setError("Tài khoản của bạn hiện đang bị khóa.");
+          setIsLoading(false);
+          return;
+        }
+
+        onLogin({
+          id: Number(foundUser.id),
+          username: foundUser.username,
+          fullName: foundUser.fullName,
+          role: foundUser.role,
+          isManager: foundUser.isManager
+        });
       } else {
         setError("Tài khoản hoặc mật khẩu không chính xác.");
       }
     } catch (err) {
-      setError("Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+      setError("Hệ thống gặp sự cố khi xác thực. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
+      setSyncStatus(null);
     }
   };
 
@@ -121,7 +133,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 selection:bg-indigo-100 font-sans">
       <div className="w-full max-w-[520px] animate-in fade-in zoom-in duration-500">
         <div className="text-center mb-10">
-          {/* Logo - Increased size as requested */}
           <div className="inline-flex items-center justify-center w-36 h-36 bg-[#5551ff] rounded-[48px] text-white shadow-2xl shadow-indigo-200 mb-8 transform hover:scale-105 transition-transform duration-500">
             <ShieldCheck size={72} strokeWidth={2} />
           </div>
@@ -163,12 +174,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
         )}
 
-        {/* Login Form Container - Added subtle blue border/ring as in image */}
         <div className="bg-white rounded-[56px] p-10 md:p-14 shadow-[0_32px_64px_-16px_rgba(79,70,229,0.12)] border-[3px] border-[#cedcfd] relative overflow-hidden">
           <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
             <div className="flex items-center gap-2 mb-2 px-1">
                <h2 className="text-[12px] font-[900] text-slate-400 uppercase tracking-[0.25em]">Thông tin đăng nhập</h2>
             </div>
+
+            {syncStatus && (
+              <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-[28px] flex items-center gap-4 animate-pulse">
+                <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+                <p className="text-xs font-[900] text-indigo-700 uppercase tracking-tight">{syncStatus}</p>
+              </div>
+            )}
 
             {error && (
               <div className="bg-rose-50 border border-rose-100 p-5 rounded-[28px] flex items-center gap-4 animate-in shake duration-300">
