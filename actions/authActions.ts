@@ -4,39 +4,55 @@ import { API_CONFIG } from '../config/apiConfig';
 import { addLog } from './logger';
 
 /**
- * Utility to find staff data in deeply nested objects from Make.com
+ * Hàm trích xuất nhân viên linh hoạt: tìm kiếm đệ quy trong các đối tượng lồng nhau.
+ * Phù hợp với cấu trúc của Make.com như { data: { data: { member: ... } } }
  */
 const extractStaffFromResponse = (result: any): StaffMember[] => {
   if (!result) return [];
 
-  // 1. If it's already an array, return it
-  if (Array.isArray(result)) return result;
+  const foundMembers: StaffMember[] = [];
+  const seenIds = new Set<string | number>();
 
-  // 2. Specific check for the user's reported structure: data.data.member
-  // Or common variants: data.member, data.items, etc.
-  let target = result;
-  
-  // Drill down through 'data' wrappers
-  if (target.data) target = target.data;
-  if (target.data) target = target.data;
-  
-  // Check for common property names
-  const memberData = target.member || target.members || target.items || target.result || target;
+  const findMembersRecursive = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return;
 
-  if (Array.isArray(memberData)) {
-    return memberData.map((item: any) => item.member || item).filter(Boolean);
-  } else if (memberData && typeof memberData === 'object') {
-    // If it's a single object (like the "System" user)
-    if (memberData.username || memberData.fullName) {
-      return [memberData];
+    // Kiểm tra xem đối tượng hiện tại có phải là thông tin nhân viên không
+    // Phải có ít nhất username hoặc fullName và role để coi là hợp lệ
+    if ((obj.username || obj.fullName) && obj.role) {
+      const id = obj.id || obj.username;
+      if (!seenIds.has(id)) {
+        foundMembers.push(obj as StaffMember);
+        seenIds.add(id);
+      }
     }
-  }
 
-  return [];
+    // Nếu là mảng, duyệt qua từng phần tử
+    if (Array.isArray(obj)) {
+      obj.forEach(item => findMembersRecursive(item));
+    } else {
+      // Nếu là đối tượng, tìm kiếm trong tất cả các thuộc tính
+      // Ưu tiên các từ khóa phổ biến của Make/Webhook để tăng tốc độ
+      const priorityKeys = ['member', 'data', 'items', 'result', 'members'];
+      
+      for (const key of priorityKeys) {
+        if (obj[key]) findMembersRecursive(obj[key]);
+      }
+
+      // Sau đó tìm trong các khóa còn lại nếu chưa thấy
+      for (const key in obj) {
+        if (!priorityKeys.includes(key) && typeof obj[key] === 'object') {
+          findMembersRecursive(obj[key]);
+        }
+      }
+    }
+  };
+
+  findMembersRecursive(result);
+  return foundMembers;
 };
 
 /**
- * Shared synchronization function used by both Login and Admin panels
+ * Hàm đồng bộ dữ liệu nhân viên dùng chung cho màn hình Đăng nhập và Admin
  */
 export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
   const url = localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
@@ -67,7 +83,6 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
 
     const rawText = await response.text();
     
-    // Log the raw response for debugging in the Settings > Logs view
     addLog({ 
       type: 'REMOTE', 
       status: 'SUCCESS', 
@@ -80,7 +95,7 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
 
     if (processedList.length > 0) {
       localStorage.setItem('app_staff_list_v1', JSON.stringify(processedList));
-      // Notify other tabs/components that data has changed
+      // Thông báo cho toàn ứng dụng dữ liệu đã thay đổi
       window.dispatchEvent(new Event('app_data_updated'));
       
       addLog({ 
@@ -91,7 +106,7 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
       });
       return processedList;
     } else {
-      throw new Error("No valid staff data found in server response.");
+      throw new Error("Không tìm thấy dữ liệu nhân sự hợp lệ trong phản hồi từ server.");
     }
   } catch (error: any) {
     addLog({ 
