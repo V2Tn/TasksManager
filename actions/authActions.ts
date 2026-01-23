@@ -4,23 +4,52 @@ import { API_CONFIG } from '../config/apiConfig';
 import { addLog } from './logger';
 
 /**
- * Đồng bộ danh sách nhân sự từ server Make.com
+ * Utility to find staff data in deeply nested objects from Make.com
+ */
+const extractStaffFromResponse = (result: any): StaffMember[] => {
+  if (!result) return [];
+
+  // 1. If it's already an array, return it
+  if (Array.isArray(result)) return result;
+
+  // 2. Specific check for the user's reported structure: data.data.member
+  // Or common variants: data.member, data.items, etc.
+  let target = result;
+  
+  // Drill down through 'data' wrappers
+  if (target.data) target = target.data;
+  if (target.data) target = target.data;
+  
+  // Check for common property names
+  const memberData = target.member || target.members || target.items || target.result || target;
+
+  if (Array.isArray(memberData)) {
+    return memberData.map((item: any) => item.member || item).filter(Boolean);
+  } else if (memberData && typeof memberData === 'object') {
+    // If it's a single object (like the "System" user)
+    if (memberData.username || memberData.fullName) {
+      return [memberData];
+    }
+  }
+
+  return [];
+};
+
+/**
+ * Shared synchronization function used by both Login and Admin panels
  */
 export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
-  // Ưu tiên lấy URL từ Settings (localStorage) -> Environment Variables
   const url = localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
   
   if (!url || !url.startsWith('http')) {
-    const errorMsg = "Chưa tìm thấy Webhook URL. Vui lòng kiểm tra lại cấu hình VITE_MAKE_STAFF_URL.";
-    addLog({ type: 'LOCAL', status: 'ERROR', action: 'AUTH_SYNC', message: errorMsg });
-    throw new Error(errorMsg);
+    throw new Error("Webhook URL is missing or invalid. Please check configuration.");
   }
 
   addLog({ 
     type: 'REMOTE', 
     status: 'PENDING', 
-    action: 'AUTH_SYNC', 
-    message: `Đang gọi Webhook: ${url.substring(0, 30)}...` 
+    action: 'SYNC_STAFF', 
+    message: 'Connecting to Make.com...' 
   });
 
   try {
@@ -34,67 +63,41 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
       mode: 'cors'
     });
     
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
 
     const rawText = await response.text();
     
-    // Lưu log dữ liệu thô để debug trong mục Cấu hình -> Nhật ký kết nối
+    // Log the raw response for debugging in the Settings > Logs view
     addLog({ 
       type: 'REMOTE', 
       status: 'SUCCESS', 
-      action: 'SERVER_RESPONSE', 
-      message: `Dữ liệu nhận được: ${rawText.substring(0, 200)}${rawText.length > 200 ? '...' : ''}` 
+      action: 'RAW_RESPONSE', 
+      message: rawText.substring(0, 500)
     });
 
-    let result;
-    try {
-      // Fix lỗi JSON phổ biến của Make.com (thiếu dấu ngoặc vuông khi chỉ có 1 row)
-      const fixedText = rawText.replace(/"data":\s*({[^{}]*member[^{}]*})\s*}/g, (match, p1) => {
-        return `"data": [${p1}]}`;
-      });
-      result = JSON.parse(fixedText);
-    } catch (e) {
-      result = JSON.parse(rawText);
-    }
-    
-    let processedList: StaffMember[] = [];
-    
-    // 1. Nếu trả về cấu trúc bọc trong "data"
-    const dataNode = result.data || result.items || result.result;
-    if (dataNode) {
-      if (Array.isArray(dataNode)) {
-        processedList = dataNode.map((item: any) => item.member || item).filter(Boolean);
-      } else if (typeof dataNode === 'object') {
-        // Tự động chuyển object đơn thành mảng 1 phần tử
-        processedList = [dataNode.member || dataNode];
-      }
-    } 
-    // 2. Nếu trả về mảng trực tiếp
-    else if (Array.isArray(result)) {
-      processedList = result;
-    }
-    // 3. Nếu trả về object trực tiếp (Single user)
-    else if (result && typeof result === 'object' && (result.username || result.fullName)) {
-      processedList = [result];
-    }
+    const result = JSON.parse(rawText);
+    const processedList = extractStaffFromResponse(result);
 
     if (processedList.length > 0) {
       localStorage.setItem('app_staff_list_v1', JSON.stringify(processedList));
+      // Notify other tabs/components that data has changed
+      window.dispatchEvent(new Event('app_data_updated'));
+      
       addLog({ 
         type: 'REMOTE', 
         status: 'SUCCESS', 
-        action: 'AUTH_SYNC', 
-        message: `Đã cập nhật ${processedList.length} nhân sự vào bộ nhớ.` 
+        action: 'SYNC_STAFF', 
+        message: `Successfully synchronized ${processedList.length} staff members.` 
       });
       return processedList;
     } else {
-      throw new Error("Server trả về thành công nhưng không tìm thấy danh sách nhân sự.");
+      throw new Error("No valid staff data found in server response.");
     }
   } catch (error: any) {
     addLog({ 
       type: 'REMOTE', 
       status: 'ERROR', 
-      action: 'AUTH_SYNC', 
+      action: 'SYNC_STAFF', 
       message: error.message 
     });
     throw error;
