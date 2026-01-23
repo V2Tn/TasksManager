@@ -5,23 +5,22 @@ import { addLog } from './logger';
 
 /**
  * Đồng bộ danh sách nhân sự từ server Make.com
- * Tiết kiệm credit bằng cách chỉ gọi khi cần thiết
  */
 export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
-  // Ưu tiên lấy URL từ Settings (localStorage) trước, sau đó mới tới Environment Variables
+  // Ưu tiên lấy URL từ Settings (localStorage) -> Environment Variables
   const url = localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
   
   if (!url || !url.startsWith('http')) {
-    const errorMsg = "Hệ thống chưa có URL Webhook. Vui lòng cấu hình VITE_MAKE_STAFF_URL trong môi trường hoặc mục Cài đặt.";
-    addLog({ type: 'LOCAL', status: 'ERROR', action: 'CHECK_URL', message: errorMsg });
+    const errorMsg = "Chưa tìm thấy Webhook URL. Vui lòng kiểm tra lại cấu hình VITE_MAKE_STAFF_URL.";
+    addLog({ type: 'LOCAL', status: 'ERROR', action: 'AUTH_SYNC', message: errorMsg });
     throw new Error(errorMsg);
   }
 
   addLog({ 
     type: 'REMOTE', 
     status: 'PENDING', 
-    action: 'SYNC_STAFF_AUTO', 
-    message: 'Đang kết nối tới máy chủ nhân sự...' 
+    action: 'AUTH_SYNC', 
+    message: `Đang gọi Webhook: ${url.substring(0, 30)}...` 
   });
 
   try {
@@ -30,22 +29,28 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         action: 'SYNC_STAFF', 
-        timestamp: new Date().toISOString(),
-        client: 'EISENHOWER_APP'
+        timestamp: new Date().toISOString()
       }),
       mode: 'cors'
     });
     
-    if (!response.ok) throw new Error(`Lỗi máy chủ: ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
     const rawText = await response.text();
-    let result;
     
+    // Lưu log dữ liệu thô để debug trong mục Cấu hình -> Nhật ký kết nối
+    addLog({ 
+      type: 'REMOTE', 
+      status: 'SUCCESS', 
+      action: 'SERVER_RESPONSE', 
+      message: `Dữ liệu nhận được: ${rawText.substring(0, 200)}${rawText.length > 200 ? '...' : ''}` 
+    });
+
+    let result;
     try {
-      // Thử xử lý định dạng JSON lỗi phổ biến từ các hệ thống automation
-      const fixedText = rawText.replace(/"data":\s*({[\s\S]*})\s*}/g, (match, p1) => {
-        if (p1.includes('}, {') && !p1.trim().startsWith('[')) return `"data": [${p1}]}`;
-        return match;
+      // Fix lỗi JSON phổ biến của Make.com (thiếu dấu ngoặc vuông khi chỉ có 1 row)
+      const fixedText = rawText.replace(/"data":\s*({[^{}]*member[^{}]*})\s*}/g, (match, p1) => {
+        return `"data": [${p1}]}`;
       });
       result = JSON.parse(fixedText);
     } catch (e) {
@@ -54,20 +59,23 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
     
     let processedList: StaffMember[] = [];
     
-    // Xử lý các cấu trúc dữ liệu khác nhau từ Make
-    if (result.status === "success" || result.success === true) {
-      const data = result.data || result.items || result.result;
-      if (Array.isArray(data)) {
-        processedList = data.map((item: any) => item.data?.member || item.member || item).filter(Boolean);
-      } else if (data && typeof data === 'object') {
-        // Nếu trả về 1 object đơn lẻ
-        const singleMember = data.member || data;
-        if (singleMember && (singleMember.username || singleMember.fullName)) {
-          processedList = [singleMember];
-        }
+    // 1. Nếu trả về cấu trúc bọc trong "data"
+    const dataNode = result.data || result.items || result.result;
+    if (dataNode) {
+      if (Array.isArray(dataNode)) {
+        processedList = dataNode.map((item: any) => item.member || item).filter(Boolean);
+      } else if (typeof dataNode === 'object') {
+        // Tự động chuyển object đơn thành mảng 1 phần tử
+        processedList = [dataNode.member || dataNode];
       }
-    } else if (Array.isArray(result)) {
+    } 
+    // 2. Nếu trả về mảng trực tiếp
+    else if (Array.isArray(result)) {
       processedList = result;
+    }
+    // 3. Nếu trả về object trực tiếp (Single user)
+    else if (result && typeof result === 'object' && (result.username || result.fullName)) {
+      processedList = [result];
     }
 
     if (processedList.length > 0) {
@@ -75,18 +83,18 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
       addLog({ 
         type: 'REMOTE', 
         status: 'SUCCESS', 
-        action: 'SYNC_STAFF_AUTO', 
-        message: `Đã đồng bộ ${processedList.length} nhân sự.` 
+        action: 'AUTH_SYNC', 
+        message: `Đã cập nhật ${processedList.length} nhân sự vào bộ nhớ.` 
       });
       return processedList;
     } else {
-      throw new Error("Dữ liệu trả về không chứa danh sách nhân sự hợp lệ.");
+      throw new Error("Server trả về thành công nhưng không tìm thấy danh sách nhân sự.");
     }
   } catch (error: any) {
     addLog({ 
       type: 'REMOTE', 
       status: 'ERROR', 
-      action: 'SYNC_STAFF_AUTO', 
+      action: 'AUTH_SYNC', 
       message: error.message 
     });
     throw error;

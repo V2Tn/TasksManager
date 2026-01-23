@@ -1,3 +1,5 @@
+// Fix: Import React to provide access to React.Dispatch and React.SetStateAction types
+import React from 'react';
 
 export enum TaskStatus {
   PENDING = 'PENDING',
