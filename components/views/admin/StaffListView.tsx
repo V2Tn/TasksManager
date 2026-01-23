@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User as UserIcon, BadgeCheck, RefreshCw, Plus, Trash2, CheckCircle, X, AlertCircle, Mail, Phone, Shield, Circle } from 'lucide-react';
 import { StaffMember, UserRole, Department } from '../../../types';
 import { StaffDetailsModal } from './StaffDetailsModal';
-import { SYSTEM_DEFAULTS, HARDCODED_DEPARTMENTS } from '../../../constants';
+import { HARDCODED_DEPARTMENTS } from '../../../constants';
+import { API_CONFIG } from '../../../config/apiConfig';
 import { addLog } from '../../../actions/logger';
 
 export const StaffListView: React.FC = () => {
@@ -42,17 +43,12 @@ export const StaffListView: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Hàm xử lý JSON lỗi từ Make (ví dụ: thiếu dấu [] ở data)
   const robustParseJSON = (rawText: string) => {
     try {
       return JSON.parse(rawText);
     } catch (e) {
-      console.warn("Dữ liệu gốc không hợp lệ, đang thử sửa lỗi cấu trúc...");
-      // Tìm đoạn "data": { ... }, { ... } và bọc nó vào [ ]
       const fixedText = rawText.replace(/"data":\s*({[\s\S]*})\s*}/g, (match, p1) => {
-        if (p1.includes('}, {')) {
-           return `"data": [${p1}]}`;
-        }
+        if (p1.includes('}, {')) return `"data": [${p1}]}`;
         return match;
       });
       return JSON.parse(fixedText);
@@ -60,14 +56,14 @@ export const StaffListView: React.FC = () => {
   };
 
   const handleSync = async () => {
-    const url = localStorage.getItem('system_make_webhook_url') || SYSTEM_DEFAULTS.MAKE_WEBHOOK_URL;
-    if (!url || !url.startsWith('http') || url.includes('your-default-')) {
+    const url = localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
+    if (!url || !url.startsWith('http')) {
       showToast("Chưa cấu hình Webhook URL", "error");
       return;
     }
     
     setIsSyncing(true);
-    addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_STAFF', message: 'Đang giải mã dữ liệu từ máy chủ...' });
+    addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_STAFF', message: 'Đang tải dữ liệu nhân sự...' });
 
     try {
       const response = await fetch(url, {
@@ -81,13 +77,8 @@ export const StaffListView: React.FC = () => {
       const result = robustParseJSON(rawText);
       
       let processedList: StaffMember[] = [];
-
-      // XỬ LÝ ĐÚNG CẤU TRÚC: result.data -> item.data.member
       if (result.status === "success" && Array.isArray(result.data)) {
-        processedList = result.data.map((item: any) => {
-          // Bóc tách lớp lồng nhau cực sâu: data.data.member
-          return item.data?.member || item.member || item;
-        }).filter(Boolean);
+        processedList = result.data.map((item: any) => item.data?.member || item.member || item).filter(Boolean);
       } else if (Array.isArray(result)) {
         processedList = result;
       }
@@ -95,13 +86,13 @@ export const StaffListView: React.FC = () => {
       if (processedList.length > 0) {
         setStaffMembers(processedList);
         showToast(`Đồng bộ thành công ${processedList.length} nhân sự`);
-        addLog({ type: 'REMOTE', status: 'SUCCESS', action: 'SYNC_STAFF', message: `Đã cập nhật ${processedList.length} nhân sự.` });
+        addLog({ type: 'REMOTE', status: 'SUCCESS', action: 'SYNC_STAFF', message: `Đã cập nhật danh sách nhân sự.` });
       } else {
-        showToast("Không tìm thấy dữ liệu nhân sự hợp lệ", "error");
+        showToast("Không tìm thấy dữ liệu hợp lệ", "error");
       }
     } catch (e: any) {
       showToast("Lỗi dữ liệu: " + e.message, "error");
-      addLog({ type: 'REMOTE', status: 'ERROR', action: 'SYNC_STAFF', message: 'Lỗi giải mã JSON: ' + e.message });
+      addLog({ type: 'REMOTE', status: 'ERROR', action: 'SYNC_STAFF', message: 'Lỗi: ' + e.message });
     } finally {
       setIsSyncing(false);
     }

@@ -69,8 +69,9 @@ export const AVAILABLE_SOUNDS = [
 ];
 
 export const SYSTEM_DEFAULTS = {
-  MAKE_WEBHOOK_URL: 'https://hook.make.com/your-default-system-id',
-  TASK_WEBHOOK_URL: 'https://hook.make.com/your-default-task-id',
+  // Rỗng vì đã chuyển sang dùng API_CONFIG và biến môi trường
+  MAKE_WEBHOOK_URL: '',
+  TASK_WEBHOOK_URL: '',
 };
 
 export const SOUND_CONFIG = {

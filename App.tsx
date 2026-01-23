@@ -14,7 +14,8 @@ import { StaffListView } from './components/views/admin/StaffListView';
 import { DepartmentListView } from './components/views/admin/DepartmentListView';
 import { SettingsView } from './components/views/admin/SettingsView';
 import { Task, TaskStatus, User, UserRole, Quadrant, StaffMember, Department } from './types';
-import { SOUND_CONFIG, SYSTEM_DEFAULTS, HARDCODED_DEPARTMENTS } from './constants';
+import { SOUND_CONFIG, HARDCODED_DEPARTMENTS } from './constants';
+import { API_CONFIG } from './config/apiConfig';
 import { isFromToday, formatSmartDate, isTimePassed } from './actions/taskTimeUtils';
 import { AlertTriangle, XCircle, RefreshCw, CheckCircle, X, AlertCircle } from 'lucide-react';
 import { addLog } from './actions/logger';
@@ -22,8 +23,9 @@ import { addLog } from './actions/logger';
 const App: React.FC = () => {
   const { tasks, setTasks, addTask, updateTaskStatus, updateTaskTitle, updateTaskQuadrant, deleteTask, progress } = useTaskLogic();
   
+  // SỬ DỤNG KEY CHUẨN current_session_user
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('app_user_v1');
+    const saved = localStorage.getItem('current_session_user');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -43,7 +45,6 @@ const App: React.FC = () => {
     return saved !== null ? saved : SOUND_CONFIG.TASK_DONE;
   });
 
-  // Quản lý tập trung dữ liệu Nhân sự và Phòng ban để đồng bộ giữa các tab
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>(() => {
     const saved = localStorage.getItem('app_staff_list_v1');
     return saved ? JSON.parse(saved) : [];
@@ -58,13 +59,26 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('app_user_v1', JSON.stringify(user));
+      localStorage.setItem('current_session_user', JSON.stringify(user));
+      
+      const savedRecent = localStorage.getItem('app_recent_accounts_v1');
+      let recentList = savedRecent ? JSON.parse(savedRecent) : [];
+      
+      const accountToAdd = {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        isManager: user.isManager
+      };
+      
+      recentList = [accountToAdd, ...recentList.filter((a: any) => a.username !== user.username)].slice(0, 4);
+      localStorage.setItem('app_recent_accounts_v1', JSON.stringify(recentList));
     } else {
-      localStorage.removeItem('app_user_v1');
+      localStorage.removeItem('current_session_user');
     }
   }, [user]);
 
-  // Lắng nghe thay đổi từ localStorage nếu có tab khác cập nhật
   useEffect(() => {
     const handleStorageChange = () => {
       const savedStaff = localStorage.getItem('app_staff_list_v1');
@@ -80,12 +94,10 @@ const App: React.FC = () => {
 
   const visibleTasks = useMemo(() => {
     if (!user) return [];
-
     const filtered = tasks.filter(task => {
       if (isAdmin) return true;
       return task.assigneeId === user.id || task.createdById === user.id;
     });
-
     return filtered.filter(task => {
       const isToday = isFromToday(task.createdAt);
       const isUnfinished = task.status === TaskStatus.PENDING || task.status === TaskStatus.DOING;
@@ -124,7 +136,7 @@ const App: React.FC = () => {
   const getTaskWebhookUrl = () => {
     const customTaskUrl = localStorage.getItem('system_task_webhook_url');
     if (customTaskUrl && customTaskUrl.trim() !== '') return customTaskUrl;
-    return SYSTEM_DEFAULTS.TASK_WEBHOOK_URL;
+    return API_CONFIG.TASK_WEBHOOK_URL;
   };
 
   const robustParseJSON = (rawText: string) => {
@@ -141,13 +153,13 @@ const App: React.FC = () => {
 
   const handleSyncTasks = async () => {
     const url = getTaskWebhookUrl();
-    if (!url || !url.startsWith('http') || url.includes('your-default-')) {
-      showToast("Chưa cấu hình Webhook Task", "error");
+    if (!url || !url.startsWith('http')) {
+      showToast("Chưa cấu hình Task Webhook", "error");
       return;
     }
 
     setIsSyncingTasks(true);
-    addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_TASKS', message: 'Đang tải danh sách công việc từ Make...' });
+    addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_TASKS', message: 'Đang tải danh sách công việc...' });
 
     try {
       const response = await fetch(url, {
@@ -170,13 +182,13 @@ const App: React.FC = () => {
       if (processedList.length > 0) {
         setTasks(processedList);
         showToast(`Đồng bộ thành công ${processedList.length} công việc`);
-        addLog({ type: 'REMOTE', status: 'SUCCESS', action: 'SYNC_TASKS', message: `Đã cập nhật ${processedList.length} task từ máy chủ.` });
+        addLog({ type: 'REMOTE', status: 'SUCCESS', action: 'SYNC_TASKS', message: `Đã cập nhật ${processedList.length} task.` });
       } else {
         showToast("Không tìm thấy dữ liệu task hợp lệ", "error");
       }
     } catch (e: any) {
-      showToast("Lỗi đồng bộ task: " + e.message, "error");
-      addLog({ type: 'REMOTE', status: 'ERROR', action: 'SYNC_TASKS', message: 'Lỗi đồng bộ: ' + e.message });
+      showToast("Lỗi đồng bộ: " + e.message, "error");
+      addLog({ type: 'REMOTE', status: 'ERROR', action: 'SYNC_TASKS', message: 'Lỗi: ' + e.message });
     } finally {
       setIsSyncingTasks(false);
     }
@@ -184,17 +196,9 @@ const App: React.FC = () => {
 
   const sendWebhook = (action: string, task: Task) => {
     const url = getTaskWebhookUrl();
-    if (!url || !url.startsWith('http') || url.includes('your-default-')) return;
-
+    if (!url || !url.startsWith('http')) return;
     const payload = { action, user: user?.username, task, timestamp: new Date().toISOString() };
-    fetch(url, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(payload), 
-      mode: 'cors' 
-    }).catch(err => {
-      console.debug('Webhook bypass:', err.message);
-    });
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), mode: 'cors' }).catch(() => {});
   };
 
   const handleAddTask = (taskData: any) => {

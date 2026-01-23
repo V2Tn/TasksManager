@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Check, X, Clock, RotateCcw, Pencil, Calendar, AlertCircle, GripVertical, User, ArrowRight, Trash2 } from 'lucide-react';
+import { Check, X, Clock, RotateCcw, Pencil, Calendar, AlertCircle, GripVertical, User, ArrowRight, RefreshCw } from 'lucide-react';
 import { Task, TaskStatus, User as UserType } from '../../../types';
 import { getAvailableActions } from '../../../actions/taskStatusActions';
-import { isTimePassed } from '../../../actions/taskTimeUtils';
+import { isTimePassed, formatSmartDate } from '../../../actions/taskTimeUtils';
 
 interface TaskCardProps {
   task: Task;
@@ -90,7 +90,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
       draggable={!isEditing && canUpdateStatus}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`group relative border rounded-[24px] p-4 transition-all duration-300 ${!isEditing && canUpdateStatus ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} overflow-hidden shrink-0 ${
+      className={`group relative border rounded-[32px] p-5 transition-all duration-300 ${!isEditing && canUpdateStatus ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} overflow-hidden shrink-0 ${
         isEditing 
           ? 'bg-white border-indigo-400 ring-8 ring-indigo-50 z-20 shadow-2xl' 
           : isDone 
@@ -98,9 +98,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
             : 'bg-white border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200'
       }`}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {isEditing ? (
-          <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <input
               ref={inputRef}
               type="text"
@@ -108,81 +108,75 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onPointerDown={stopProp}
-              className="w-full text-base font-bold text-slate-800 bg-white border-2 border-indigo-500 rounded-xl px-4 py-2 focus:outline-none shadow-sm"
+              className="w-full text-base font-[800] text-slate-800 bg-white border-2 border-indigo-500 rounded-2xl px-5 py-3 focus:outline-none shadow-sm"
             />
-            <div className="flex items-center gap-2">
-              <button onClick={handleTitleSubmit} onPointerDown={stopProp} className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider">Lưu</button>
-              <button onClick={handleCancel} onPointerDown={stopProp} className="px-5 py-2 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-black uppercase tracking-wider">Hủy</button>
+            <div className="flex items-center gap-3">
+              <button onClick={handleTitleSubmit} onPointerDown={stopProp} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[12px] font-[900] uppercase tracking-wider">Lưu thay đổi</button>
+              <button onClick={handleCancel} onPointerDown={stopProp} className="px-6 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-[12px] font-[900] uppercase tracking-wider">Hủy</button>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-start gap-4 shrink-0">
-              <h4 className={`text-[15.5px] leading-relaxed flex-1 font-extrabold ${isDone ? 'line-through text-slate-300' : 'text-slate-800'}`}>
+            <div className="flex justify-between items-start gap-4">
+              <h4 className={`text-[16px] leading-tight flex-1 font-[900] ${isDone ? 'line-through text-slate-300' : 'text-slate-800'}`}>
                 {task.title}
               </h4>
               <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 {!isDone && canEditTitle && (
-                  <button onClick={() => setIsEditing(true)} onPointerDown={stopProp} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md">
-                    <Pencil size={14} />
+                  <button onClick={() => setIsEditing(true)} onPointerDown={stopProp} className="p-2 text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-indigo-50 transition-colors">
+                    <Pencil size={16} />
                   </button>
                 )}
-                {onDelete && task.createdById === currentUser?.id && (
-                  <button onClick={() => onDelete(task.id)} onPointerDown={stopProp} className="p-1.5 text-slate-400 hover:text-red-500 rounded-md">
-                    <Trash2 size={14} />
-                  </button>
-                )}
-                {canUpdateStatus && <div className="p-1.5 text-slate-200 cursor-grab"><GripVertical size={16} /></div>}
+                {/* Loại bỏ item deleted task theo yêu cầu */}
+                {canUpdateStatus && <div className="p-2 text-slate-300 cursor-grab"><GripVertical size={18} /></div>}
               </div>
             </div>
 
-            {/* Optimized Meta Row */}
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 border-y border-slate-50 text-[10px] md:text-[11px] font-bold uppercase tracking-tight shrink-0 ${isDone ? 'text-slate-300' : 'text-slate-500'}`}>
-              <div className="flex items-center gap-1 shrink-0">
-                <Clock size={12} className="text-slate-300" />
-                <span className={isDone ? "" : "text-slate-700"}>{task.startTime}</span>
+            {/* Row mốc thời gian đầy đủ - Đã đổi "Sửa" thành "Cập nhật" */}
+            <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 py-3 border-y border-slate-50 text-[10px] font-[800] uppercase tracking-wider ${isDone ? 'text-slate-300 opacity-50' : 'text-slate-500'}`}>
+              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg whitespace-nowrap">
+                <Clock size={12} className="text-slate-400" />
+                <span>Tạo: <span className="text-slate-700">{task.createdAtDisplay}</span></span>
               </div>
-              <div className="w-[1px] h-3 bg-slate-100 shrink-0"></div>
-              <div className="flex items-center gap-1 shrink-0">
-                <RotateCcw size={12} className="text-slate-300" />
-                <span className={isDone ? "" : "text-slate-700"}>{task.updatedAt}</span>
+              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg whitespace-nowrap">
+                <RefreshCw size={12} className="text-slate-400" />
+                <span>Cập nhật: <span className="text-slate-700">{formatSmartDate(task.updatedAt)}</span></span>
               </div>
-              <div className="w-[1px] h-3 bg-slate-100 shrink-0"></div>
-              <div className="flex items-center gap-1.5 shrink-0 bg-rose-50/50 px-2 py-0.5 rounded-md">
+              <div className="flex items-center gap-2 px-2 py-1 bg-rose-50 rounded-lg whitespace-nowrap">
                 <Calendar size={12} className={isDone ? "text-slate-300" : "text-rose-500"} />
-                <span className={isDone ? "" : "text-rose-600 font-black"}>Hạn: {task.endTime}</span>
+                <span className={isDone ? "" : "text-rose-600 font-[900]"}>Hạn: {task.endTime}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 shrink-0 mt-1">
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <div className="shrink-0">
-                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border uppercase tracking-wider ${
-                    task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' :
-                    task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
-                    task.status === TaskStatus.PENDING ? 'bg-blue-600 text-white border-blue-600 shadow-sm' :
+                  <span className={`px-3 py-1 rounded-xl text-[10px] font-[900] border uppercase tracking-wider shadow-sm ${
+                    task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600' :
+                    task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500' :
+                    task.status === TaskStatus.PENDING ? 'bg-blue-600 text-white border-blue-600' :
                     'bg-slate-400 text-white border-slate-400'
                   }`}>
-                    {task.status === TaskStatus.DOING ? 'ĐANG LÀM' : task.status === TaskStatus.DONE ? 'HOÀN THÀNH' : task.status === TaskStatus.PENDING ? 'MỚI' : 'HỦY'}
+                    {task.status === TaskStatus.DOING ? 'Đang làm' : task.status === TaskStatus.DONE ? 'Hoàn thành' : task.status === TaskStatus.PENDING ? 'Mới' : 'Hủy'}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-2 py-1 min-w-0">
-                  <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 min-w-0">
-                    <User size={10} strokeWidth={3} className="shrink-0" />
-                    <span className="truncate max-w-[50px]">{creatorDisplay}</span>
+                <div className="flex items-center gap-2 bg-[#f8fafc] rounded-xl px-3 py-1.5 border border-slate-50 min-w-0">
+                  <div className="flex items-center gap-1.5 text-[10px] font-[900] text-slate-500 min-w-0">
+                    <User size={12} strokeWidth={3} className="shrink-0 text-slate-300" />
+                    <span className="truncate max-w-[60px]">{creatorDisplay}</span>
                   </div>
-                  <ArrowRight size={8} className="text-slate-300 shrink-0" strokeWidth={3} />
-                  <div className={`flex items-center gap-1 text-[10px] font-black min-w-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
-                    <User size={10} strokeWidth={3} className="shrink-0" />
-                    <span className="truncate max-w-[50px]">{assigneeDisplay}</span>
+                  <ArrowRight size={10} className="text-slate-300 shrink-0" strokeWidth={3} />
+                  <div className={`flex items-center gap-1.5 text-[10px] font-[900] min-w-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
+                    <User size={12} strokeWidth={3} className={`shrink-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-500' : 'text-slate-300'}`} />
+                    <span className="truncate max-w-[60px]">{assigneeDisplay}</span>
                   </div>
                 </div>
 
                 {isOverdue && (
-                  <span className="flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-lg border border-rose-200 text-[10px] font-black shrink-0 animate-pulse">
-                    <AlertCircle size={10} strokeWidth={3} />
-                    <span>TỒN ĐỌNG</span>
+                  <span className="flex items-center gap-1.5 bg-rose-500 text-white px-3 py-1 rounded-xl text-[10px] font-[900] shrink-0 animate-pulse shadow-lg shadow-rose-100">
+                    <AlertCircle size={12} strokeWidth={3} />
+                    <span>TRỄ HẠN</span>
                   </span>
                 )}
               </div>
@@ -197,20 +191,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
                     };
 
                     const isRedoAction = action === 'REDO';
-                    const btnBaseClass = "w-10 h-10 flex items-center justify-center rounded-full border transition-all active:scale-90 shadow-sm";
+                    const btnBaseClass = "w-11 h-11 flex items-center justify-center rounded-2xl border transition-all active:scale-90 shadow-sm";
                     
                     const btnColorClass = isRedoAction 
-                      ? "bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-100 shadow-amber-50" 
-                      : isDone ? "bg-white text-slate-200 border-slate-50 opacity-50" : "bg-white text-slate-400 border-slate-100 hover:shadow-md hover:border-indigo-100";
+                      ? "bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-100" 
+                      : isDone ? "bg-white text-slate-200 border-slate-50 opacity-50" : "bg-white text-slate-400 border-slate-100 hover:shadow-md hover:border-indigo-100 hover:text-indigo-600";
 
-                    if (action === 'DONE') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-emerald-500`} title="Hoàn thành"><Check size={20} strokeWidth={4} /></button>;
-                    if (action === 'START') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-indigo-500`} title="Bắt đầu"><Clock size={20} strokeWidth={4} /></button>;
-                    if (action === 'CANCEL') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-rose-500`} title="Hủy bỏ"><X size={20} strokeWidth={4} /></button>;
-                    if (action === 'REDO') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-amber-600 hover:border-amber-300 scale-105 shadow-md`} title="Làm lại"><RotateCcw size={20} strokeWidth={4} /></button>;
+                    if (action === 'DONE') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-emerald-500 hover:bg-emerald-50`} title="Hoàn thành"><Check size={22} strokeWidth={4} /></button>;
+                    if (action === 'START') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-indigo-600 hover:bg-indigo-50`} title="Bắt đầu"><Clock size={22} strokeWidth={4} /></button>;
+                    if (action === 'CANCEL') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-rose-500 hover:bg-rose-50`} title="Hủy bỏ"><X size={22} strokeWidth={4} /></button>;
+                    if (action === 'REDO') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-amber-600 hover:border-amber-300 bg-white scale-105 shadow-md`} title="Làm lại"><RotateCcw size={22} strokeWidth={4} /></button>;
                     return null;
                   })
                 ) : (
-                  <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">Chỉ theo dõi</span>
+                  <span className="text-[10px] font-[900] text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 shadow-inner">View Only</span>
                 )}
               </div>
             </div>
