@@ -1,17 +1,30 @@
 
 import React from 'react';
-import { Task, TaskStatus } from '../../../types';
+import { Task, TaskStatus, User } from '../../../types';
 import { TaskCard } from '../tasks/TaskCard';
 
 interface TaskListViewProps {
   tasks: Task[];
-  onUpdateStatus: (id: string, status: TaskStatus) => void;
-  onUpdateTitle: (id: string, title: string) => void;
+  onUpdateStatus: (id: number, status: TaskStatus) => void;
+  onUpdateTitle: (id: number, title: string) => void;
+  onDeleteTask?: (id: number) => void;
+  currentUser?: User | null;
 }
 
-export const TaskListView: React.FC<TaskListViewProps> = ({ tasks, onUpdateStatus, onUpdateTitle }) => {
-  // Sort tasks by creation time descending (most recent first)
-  const sortedTasks = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export const TaskListView: React.FC<TaskListViewProps> = ({ tasks, onUpdateStatus, onUpdateTitle, onDeleteTask, currentUser }) => {
+  const statusWeight = {
+    [TaskStatus.PENDING]: 0,
+    [TaskStatus.DOING]: 0,
+    [TaskStatus.CANCELLED]: 1,
+    [TaskStatus.DONE]: 2
+  };
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const weightA = statusWeight[a.status];
+    const weightB = statusWeight[b.status];
+    if (weightA !== weightB) return weightA - weightB;
+    return b.startTime.localeCompare(a.startTime);
+  });
 
   return (
     <div className="flex flex-col gap-4 w-full animate-in fade-in slide-in-from-right-4 duration-300">
@@ -30,6 +43,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({ tasks, onUpdateStatu
               task={task} 
               onUpdateStatus={onUpdateStatus}
               onUpdateTitle={onUpdateTitle}
+              onDelete={onDeleteTask}
+              currentUser={currentUser}
             />
           </div>
         ))

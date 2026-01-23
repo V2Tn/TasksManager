@@ -54,12 +54,12 @@ export const StatCard: React.FC<StatCardProps> = ({ done, doing, pending, cancel
         
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-x-2 gap-y-2 flex-1 w-full">
-          {/* XONG */}
+          {/* HOÀN THÀNH */}
           <div className="flex items-center gap-2 bg-[#f0fdf4] px-3 py-2 rounded-2xl border border-green-50 shadow-sm min-w-0">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] shrink-0"></span>
             <div className="flex items-center gap-1 min-w-0 overflow-hidden">
               <span className="text-[13px] md:text-[14px] font-black text-[#1e293b] leading-none">{done}</span>
-              <span className="text-[8px] md:text-[9px] font-extrabold text-[#64748b] uppercase tracking-wider truncate">XONG</span>
+              <span className="text-[8px] md:text-[9px] font-extrabold text-[#64748b] uppercase tracking-wider truncate">HOÀN THÀNH</span>
             </div>
           </div>
 
@@ -72,12 +72,12 @@ export const StatCard: React.FC<StatCardProps> = ({ done, doing, pending, cancel
             </div>
           </div>
 
-          {/* TỒN ĐỘNG */}
+          {/* TỒN ĐỌNG */}
           <div className="flex items-center gap-2 bg-[#fef2f2] px-3 py-2 rounded-2xl border border-red-50 shadow-sm min-w-0">
             <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] shrink-0"></span>
             <div className="flex items-center gap-1 min-w-0 overflow-hidden">
               <span className="text-[13px] md:text-[14px] font-black text-[#1e293b] leading-none">{backlog}</span>
-              <span className="text-[8px] md:text-[9px] font-extrabold text-[#64748b] uppercase tracking-wider truncate">TỒN ĐỘNG</span>
+              <span className="text-[8px] md:text-[9px] font-extrabold text-[#64748b] uppercase tracking-wider truncate">TỒN ĐỌNG</span>
             </div>
           </div>
 

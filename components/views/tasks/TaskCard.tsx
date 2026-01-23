@@ -1,17 +1,19 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Check, X, Clock, RotateCcw, Pencil, Calendar, AlertCircle, GripVertical } from 'lucide-react';
-import { Task, TaskStatus } from '../../../types';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Check, X, Clock, RotateCcw, Pencil, Calendar, AlertCircle, GripVertical, User, ArrowRight, Trash2 } from 'lucide-react';
+import { Task, TaskStatus, User as UserType } from '../../../types';
 import { getAvailableActions } from '../../../actions/taskStatusActions';
 import { isTimePassed } from '../../../actions/taskTimeUtils';
 
 interface TaskCardProps {
   task: Task;
-  onUpdateStatus: (id: string, status: TaskStatus) => void;
-  onUpdateTitle: (id: string, title: string) => void;
+  onUpdateStatus: (id: number, status: TaskStatus) => void;
+  onUpdateTitle: (id: number, title: string) => void;
+  onDelete?: (id: number) => void;
+  currentUser?: UserType | null;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpdateTitle }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpdateTitle, onDelete, currentUser }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,8 +44,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   };
 
   const handleDragStart = (e: React.DragEvent) => {
-    // Only drag if not editing and not clicking a button
-    e.dataTransfer.setData('taskId', task.id);
+    e.dataTransfer.setData('taskId', String(task.id));
     e.dataTransfer.effectAllowed = 'move';
     const target = e.currentTarget as HTMLElement;
     setTimeout(() => {
@@ -60,22 +61,41 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
   const isDone = task.status === TaskStatus.DONE;
   const isOverdue = isTimePassed(task.endTime) && !isDone;
 
-  // Helper to prevent drag logic when interacting with buttons (Fixes 2-click issue on mobile)
   const stopProp = (e: React.PointerEvent | React.MouseEvent) => {
     e.stopPropagation();
   };
 
+  const creatorDisplay = useMemo(() => {
+    if (!task.createdById) return 'Hệ thống';
+    return task.createdById === currentUser?.id ? 'TÔI' : task.createdByLabel.toUpperCase();
+  }, [task, currentUser]);
+
+  const assigneeDisplay = useMemo(() => {
+    if (!task.assigneeId) return 'TÔI';
+    return task.assigneeId === currentUser?.id ? 'TÔI' : task.assigneeLabel.toUpperCase();
+  }, [task, currentUser]);
+
+  const canUpdateStatus = useMemo(() => {
+    if (!currentUser) return false;
+    return task.assigneeId === currentUser.id;
+  }, [task, currentUser]);
+
+  const canEditTitle = useMemo(() => {
+    if (!currentUser) return false;
+    return task.createdById === currentUser.id && task.assigneeId === currentUser.id;
+  }, [task, currentUser]);
+
   return (
     <div 
-      draggable={!isEditing}
+      draggable={!isEditing && canUpdateStatus}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`group relative border rounded-xl p-4 transition-all duration-300 cursor-grab active:cursor-grabbing touch-none select-none ${
+      className={`group relative border rounded-[24px] p-4 transition-all duration-300 ${!isEditing && canUpdateStatus ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} overflow-hidden shrink-0 ${
         isEditing 
-          ? 'bg-white border-indigo-500 ring-2 ring-indigo-50 z-10 shadow-lg' 
+          ? 'bg-white border-indigo-400 ring-8 ring-indigo-50 z-20 shadow-2xl' 
           : isDone 
-            ? 'bg-slate-50/50 border-slate-100 shadow-none' 
-            : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
+            ? 'bg-slate-50 border-slate-100 shadow-none opacity-80' 
+            : 'bg-white border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200'
       }`}
     >
       <div className="flex flex-col gap-3">
@@ -88,147 +108,110 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onPointerDown={stopProp}
-              className="w-full text-[14px] font-bold text-gray-900 bg-white border border-indigo-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-4 focus:ring-indigo-50 outline-none transition-all shadow-sm"
+              className="w-full text-base font-bold text-slate-800 bg-white border-2 border-indigo-500 rounded-xl px-4 py-2 focus:outline-none shadow-sm"
             />
             <div className="flex items-center gap-2">
-              <button 
-                onPointerDown={stopProp}
-                onClick={handleTitleSubmit}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f0fdf4] text-[#16a34a] rounded-md text-[12px] font-black hover:bg-[#dcfce7] transition-colors border border-green-100 shadow-sm"
-              >
-                <Check size={14} strokeWidth={3} /> Lưu
-              </button>
-              <button 
-                onPointerDown={stopProp}
-                onClick={handleCancel}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f9fafb] text-[#4b5563] rounded-md text-[12px] font-black hover:bg-[#f3f4f6] transition-colors border border-gray-100 shadow-sm"
-              >
-                <X size={14} strokeWidth={3} /> Hủy
-              </button>
+              <button onClick={handleTitleSubmit} onPointerDown={stopProp} className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider">Lưu</button>
+              <button onClick={handleCancel} onPointerDown={stopProp} className="px-5 py-2 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-black uppercase tracking-wider">Hủy</button>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h4 className={`text-[14px] leading-snug transition-colors ${
-                  isDone 
-                    ? 'line-through text-slate-400 font-bold' 
-                    : 'text-slate-900 font-black group-hover:text-indigo-600'
-                }`}>
-                  {task.title}
-                </h4>
-              </div>
-              
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                {!isDone && (
-                  <button 
-                    onPointerDown={stopProp}
-                    onClick={() => setIsEditing(true)}
-                    className="p-1.5 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
-                  >
-                    <Pencil size={12} />
+            <div className="flex justify-between items-start gap-4 shrink-0">
+              <h4 className={`text-[15.5px] leading-relaxed flex-1 font-extrabold ${isDone ? 'line-through text-slate-300' : 'text-slate-800'}`}>
+                {task.title}
+              </h4>
+              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                {!isDone && canEditTitle && (
+                  <button onClick={() => setIsEditing(true)} onPointerDown={stopProp} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md">
+                    <Pencil size={14} />
                   </button>
                 )}
-                <div className="p-1.5 text-gray-300 cursor-grab active:cursor-grabbing">
-                  <GripVertical size={14} />
+                {onDelete && task.createdById === currentUser?.id && (
+                  <button onClick={() => onDelete(task.id)} onPointerDown={stopProp} className="p-1.5 text-slate-400 hover:text-red-500 rounded-md">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+                {canUpdateStatus && <div className="p-1.5 text-slate-200 cursor-grab"><GripVertical size={16} /></div>}
+              </div>
+            </div>
+
+            {/* Optimized Meta Row */}
+            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 border-y border-slate-50 text-[10px] md:text-[11px] font-bold uppercase tracking-tight shrink-0 ${isDone ? 'text-slate-300' : 'text-slate-500'}`}>
+              <div className="flex items-center gap-1 shrink-0">
+                <Clock size={12} className="text-slate-300" />
+                <span className={isDone ? "" : "text-slate-700"}>{task.startTime}</span>
+              </div>
+              <div className="w-[1px] h-3 bg-slate-100 shrink-0"></div>
+              <div className="flex items-center gap-1 shrink-0">
+                <RotateCcw size={12} className="text-slate-300" />
+                <span className={isDone ? "" : "text-slate-700"}>{task.updatedAt}</span>
+              </div>
+              <div className="w-[1px] h-3 bg-slate-100 shrink-0"></div>
+              <div className="flex items-center gap-1.5 shrink-0 bg-rose-50/50 px-2 py-0.5 rounded-md">
+                <Calendar size={12} className={isDone ? "text-slate-300" : "text-rose-500"} />
+                <span className={isDone ? "" : "text-rose-600 font-black"}>Hạn: {task.endTime}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 shrink-0 mt-1">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <div className="shrink-0">
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border uppercase tracking-wider ${
+                    task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' :
+                    task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
+                    task.status === TaskStatus.PENDING ? 'bg-blue-600 text-white border-blue-600 shadow-sm' :
+                    'bg-slate-400 text-white border-slate-400'
+                  }`}>
+                    {task.status === TaskStatus.DOING ? 'ĐANG LÀM' : task.status === TaskStatus.DONE ? 'HOÀN THÀNH' : task.status === TaskStatus.PENDING ? 'MỚI' : 'HỦY'}
+                  </span>
                 </div>
-              </div>
-            </div>
 
-            <div className={`flex flex-wrap items-center text-[9px] gap-x-2 gap-y-1 transition-opacity ${isDone ? 'text-slate-400' : 'text-slate-700'}`}>
-              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
-                <Clock size={10} className={`mr-1 ${isDone ? 'opacity-40' : 'opacity-90 text-slate-900'}`} />
-                <span>Tạo: {task.startTime}</span>
-              </div>
-              <span className="opacity-20 hidden sm:inline text-slate-300">|</span>
-              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
-                <RotateCcw size={10} className={`mr-1 ${isDone ? 'opacity-40 text-indigo-300' : 'opacity-90 text-indigo-600'}`} />
-                <span>Cập nhật: {task.updatedAt}</span>
-              </div>
-              <span className="opacity-20 hidden sm:inline text-slate-300">|</span>
-              <div className={`flex items-center shrink-0 ${!isDone ? 'font-black' : 'font-bold'}`}>
-                <Calendar size={10} className={`mr-1 ${isDone ? 'opacity-40 text-red-300' : 'opacity-90 text-red-600'}`} />
-                <span className={`${isDone ? '' : 'text-red-700'}`}>Hạn: {task.endTime}</span>
-              </div>
-            </div>
+                <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-2 py-1 min-w-0">
+                  <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 min-w-0">
+                    <User size={10} strokeWidth={3} className="shrink-0" />
+                    <span className="truncate max-w-[50px]">{creatorDisplay}</span>
+                  </div>
+                  <ArrowRight size={8} className="text-slate-300 shrink-0" strokeWidth={3} />
+                  <div className={`flex items-center gap-1 text-[10px] font-black min-w-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
+                    <User size={10} strokeWidth={3} className="shrink-0" />
+                    <span className="truncate max-w-[50px]">{assigneeDisplay}</span>
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                  {isOverdue && (
-                      <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-red-100 flex items-center gap-1 shadow-sm">
-                        <AlertCircle size={10} /> Tồn đọng
-                      </span>
-                  )}
-                  {task.status === TaskStatus.DOING && (
-                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-indigo-100 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span> Đang làm
-                      </span>
-                  )}
-                  {task.status === TaskStatus.PENDING && (
-                       <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-blue-100 flex items-center gap-1"> Mới </span>
-                  )}
-                  {task.status === TaskStatus.CANCELLED && (
-                       <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[10px] font-black border border-gray-200"> Đã hủy </span>
-                  )}
-                  {task.status === TaskStatus.DONE && (
-                       <span className="bg-[#f0fdf4] text-[#16a34a] px-2 py-0.5 rounded-md text-[10px] font-black border border-[#dcfce7] shadow-sm"> Hoàn thành </span>
-                  )}
+                {isOverdue && (
+                  <span className="flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-lg border border-rose-200 text-[10px] font-black shrink-0 animate-pulse">
+                    <AlertCircle size={10} strokeWidth={3} />
+                    <span>TỒN ĐỌNG</span>
+                  </span>
+                )}
               </div>
 
-              <div className={`flex gap-1 ${isDone ? 'opacity-50' : 'opacity-100'}`}>
-                {actions.map(action => {
-                  const handleAction = (e: React.MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (action === 'DONE') onUpdateStatus(task.id, TaskStatus.DONE);
-                    if (action === 'START') onUpdateStatus(task.id, TaskStatus.DOING);
-                    if (action === 'CANCEL') onUpdateStatus(task.id, TaskStatus.CANCELLED);
-                    if (action === 'REDO') onUpdateStatus(task.id, TaskStatus.PENDING);
-                  };
+              <div className="flex items-center gap-2 shrink-0">
+                {canUpdateStatus ? (
+                  actions.map(action => {
+                    const handleAction = (e: React.MouseEvent) => {
+                      e.preventDefault(); e.stopPropagation();
+                      const nextStatus = action === 'DONE' ? TaskStatus.DONE : action === 'START' ? TaskStatus.DOING : action === 'CANCEL' ? TaskStatus.CANCELLED : TaskStatus.PENDING;
+                      onUpdateStatus(task.id, nextStatus);
+                    };
 
-                  if (action === 'DONE') return (
-                    <button 
-                      key={action} 
-                      onPointerDown={stopProp}
-                      onClick={handleAction} 
-                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-green-600 hover:bg-green-50 transition-all cursor-pointer"
-                    >
-                      <Check size={14} />
-                    </button>
-                  );
-                  if (action === 'START') return (
-                    <button 
-                      key={action} 
-                      onPointerDown={stopProp}
-                      onClick={handleAction} 
-                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
-                    >
-                      <Clock size={14} />
-                    </button>
-                  );
-                  if (action === 'CANCEL') return (
-                    <button 
-                      key={action} 
-                      onPointerDown={stopProp}
-                      onClick={handleAction} 
-                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  );
-                  if (action === 'REDO') return (
-                    <button 
-                      key={action} 
-                      onPointerDown={stopProp}
-                      onClick={handleAction} 
-                      className="p-1.5 rounded-lg border border-gray-100 text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-all cursor-pointer"
-                    >
-                      <RotateCcw size={14} />
-                    </button>
-                  );
-                  return null;
-                })}
+                    const isRedoAction = action === 'REDO';
+                    const btnBaseClass = "w-10 h-10 flex items-center justify-center rounded-full border transition-all active:scale-90 shadow-sm";
+                    
+                    const btnColorClass = isRedoAction 
+                      ? "bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-100 shadow-amber-50" 
+                      : isDone ? "bg-white text-slate-200 border-slate-50 opacity-50" : "bg-white text-slate-400 border-slate-100 hover:shadow-md hover:border-indigo-100";
+
+                    if (action === 'DONE') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-emerald-500`} title="Hoàn thành"><Check size={20} strokeWidth={4} /></button>;
+                    if (action === 'START') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-indigo-500`} title="Bắt đầu"><Clock size={20} strokeWidth={4} /></button>;
+                    if (action === 'CANCEL') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-rose-500`} title="Hủy bỏ"><X size={20} strokeWidth={4} /></button>;
+                    if (action === 'REDO') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-amber-600 hover:border-amber-300 scale-105 shadow-md`} title="Làm lại"><RotateCcw size={20} strokeWidth={4} /></button>;
+                    return null;
+                  })
+                ) : (
+                  <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">Chỉ theo dõi</span>
+                )}
               </div>
             </div>
           </>

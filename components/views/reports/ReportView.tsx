@@ -1,16 +1,17 @@
 
 import React, { useState, useMemo } from 'react';
 import { ChevronRight, CheckCircle2, ListChecks, Trophy } from 'lucide-react';
-import { Task, TaskStatus } from '../../../types';
+import { Task, TaskStatus, User } from '../../../types';
 import { TaskCard } from '../tasks/TaskCard';
 
 interface ReportViewProps {
   tasks: Task[];
-  onUpdateStatus: (id: string, status: TaskStatus) => void;
-  onUpdateTitle: (id: string, title: string) => void;
+  onUpdateStatus: (id: number, status: TaskStatus) => void;
+  onUpdateTitle: (id: number, title: string) => void;
+  currentUser?: User | null;
 }
 
-export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, onUpdateTitle }) => {
+export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, onUpdateTitle, currentUser }) => {
   const [activePeriod, setActivePeriod] = useState('Tuần');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   
@@ -102,10 +103,8 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
       }
     } else if (activePeriod === 'Năm') {
       const currentYear = now.getFullYear();
-      // Hiển thị năm hiện tại và 4 năm trước
       for (let i = 4; i >= 0; i--) {
         const year = currentYear - i;
-        // Vì dữ liệu task hiện tại không lưu năm, tạm coi mọi task là của năm nay
         const yearTasks = (i === 0) ? tasks : [];
 
         result.push({
@@ -144,7 +143,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         ))}
       </div>
 
-      {/* Main Stats Summary */}
       <div className="relative bg-gradient-to-br from-[#7c3aed] to-[#6366f1] rounded-[24px] p-6 md:p-10 text-white overflow-hidden shadow-2xl shadow-indigo-100 min-h-[180px] flex flex-col justify-center">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
@@ -161,7 +159,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         </div>
       </div>
 
-      {/* Interactive Chart Area */}
       <div className="bg-white rounded-[24px] p-4 md:p-10 border border-gray-50 shadow-xl shadow-gray-100/50 overflow-visible relative">
         <div className="flex items-center justify-between mb-8">
            <h3 className="text-[14px] md:text-[15px] font-black text-gray-800 uppercase tracking-tight">Biểu đồ tiến độ ({activePeriod})</h3>
@@ -171,7 +168,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
            </div>
         </div>
         
-        {/* pt-32 ensures space for the tooltip at the top */}
         <div className="relative pt-32 pb-8 px-2 overflow-visible">
           <div className="h-64 md:h-80 flex items-end justify-between gap-1 md:gap-3 relative min-w-full overflow-visible">
             {chartData.map((data, idx) => {
@@ -191,7 +187,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                 >
-                  {/* Tooltip on Hover */}
                   {isHovered && (
                     <div className={`absolute bottom-[calc(100%+24px)] ${tooltipPosClass} bg-[#1e293b] text-white p-4 rounded-2xl shadow-[0_25px_50px_rgba(0,0,0,0.4)] z-[999] min-w-[160px] animate-in fade-in zoom-in duration-200 border border-white/10`}>
                       <div className="text-[10px] font-black text-indigo-400 uppercase mb-3 border-b border-white/5 pb-2 whitespace-nowrap tracking-wider">
@@ -217,7 +212,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
                     </div>
                   )}
 
-                  {/* The Bar Columns */}
                   <div className={`w-full flex items-end justify-center gap-0.5 md:gap-1.5 h-full transition-all duration-300 ${isHovered ? 'opacity-100 scale-x-110' : 'opacity-70'}`}>
                     <div 
                       className={`w-3 md:w-8 bg-indigo-600 rounded-t-lg transition-all duration-500 relative ${isHovered ? 'shadow-[0_0_20px_rgba(79,70,229,0.5)] brightness-125' : ''}`} 
@@ -239,7 +233,6 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         </div>
       </div>
 
-      {/* Work History Section */}
       <div className="bg-white rounded-[24px] border border-gray-50 shadow-xl shadow-gray-100/50 overflow-hidden">
         <div className="px-6 md:px-10 py-5 flex items-center gap-3 border-b border-gray-50 bg-gray-50/20">
           <ListChecks size={20} className="text-indigo-600" />
@@ -275,6 +268,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
                       task={task} 
                       onUpdateStatus={onUpdateStatus}
                       onUpdateTitle={onUpdateTitle}
+                      currentUser={currentUser}
                     />
                   ))}
                 </div>

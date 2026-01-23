@@ -7,29 +7,79 @@ export enum TaskStatus {
 }
 
 export enum Quadrant {
-  Q1 = 'Q1', // Important & Urgent (Do Now)
-  Q2 = 'Q2', // Important & Not Urgent (Schedule)
-  Q3 = 'Q3', // Not Important & Urgent (Delegate)
-  Q4 = 'Q4'  // Not Important & Not Urgent (Eliminate)
+  Q1 = 'Q1', // Important & Urgent
+  Q2 = 'Q2', // Important & Not Urgent
+  Q3 = 'Q3', // Not Important & Urgent
+  Q4 = 'Q4'  // Not Important & Not Urgent
+}
+
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  STAFF = 'STAFF',
+  INTERN = 'INTERN'
+}
+
+export interface User {
+  id: number;
+  username: string;
+  fullName: string;
+  role: UserRole;
+  avatar?: string;
+  isManager?: boolean;
+  departmentId?: string; // ID phòng ban của user
+}
+
+export interface StaffMember {
+  id: number;
+  fullName: string;
+  username: string;
+  password?: string;
+  role: UserRole;
+  email: string;
+  phone: string;
+  active: boolean;
+  department?: string;
+  joinDate?: string;
+  isManager?: boolean;
+}
+
+export interface Department {
+  id: number;
+  name: string;
+  code?: string;
+  description: string;
+  createdAt: string;
+  managerId?: number;
 }
 
 export interface Task {
-  id: string;
+  id: number;
   title: string;
-  quadrant: Quadrant;
+  initialQuadrant: Quadrant; // Original quadrant at creation
+  quadrant: Quadrant;        // Current quadrant
   status: TaskStatus;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string;         // ISO timestamp
+  createdAtDisplay: string;  // Formatted string (HH:mm DD/MM[/YYYY])
+  updatedAt: string;         // ISO timestamp
   startTime: string;
   endTime: string;
+  createdById: number;
+  createdByLabel: string;
+  assigneeId: number;
+  assigneeLabel: string;
+  logs: string[];            // History of changes
 }
 
 export interface TaskLogicResult {
   tasks: Task[];
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTaskStatus: (id: string, newStatus: TaskStatus) => void;
-  updateTaskTitle: (id: string, newTitle: string) => void;
-  updateTaskQuadrant: (id: string, newQuadrant: Quadrant) => void;
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'createdAtDisplay' | 'updatedAt' | 'logs' | 'initialQuadrant'>) => Task;
+  updateTaskStatus: (id: number, newStatus: TaskStatus, userName: string) => void;
+  updateTaskTitle: (id: number, newTitle: string, userName: string) => void;
+  updateTaskQuadrant: (id: number, newQuadrant: Quadrant, userName: string) => void;
+  deleteTask: (id: number) => Task | undefined;
   progress: {
     done: number;
     doing: number;
