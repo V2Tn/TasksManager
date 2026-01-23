@@ -65,40 +65,28 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const isTryingAdmin = username.toLowerCase() === 'admin';
       
       if (isTryingAdmin && password === 'admin') {
-        onLogin({
-          id: 1,
-          username: 'admin',
-          fullName: 'Quản trị viên',
-          role: UserRole.ADMIN,
-          isManager: true
-        });
+        onLogin({ id: 1, username: 'admin', fullName: 'Quản trị viên', role: UserRole.ADMIN, isManager: true });
         return;
       }
 
-      let savedStaff = localStorage.getItem('app_staff_list_v1');
-      let staffList: StaffMember[] = savedStaff ? JSON.parse(savedStaff) : [];
-
-      let foundUser = staffList.find(u => 
-        u.username.toLowerCase() === username.toLowerCase() && 
-        String(u.password) === String(password)
-      );
-
-      if (!foundUser) {
-        setSyncStatus("Đang kiểm tra thông tin trên hệ thống...");
-        try {
-          const freshStaff = await syncStaffDataFromServer();
-          foundUser = freshStaff.find(u => 
-            u.username.toLowerCase() === username.toLowerCase() && 
-            String(u.password) === String(password)
-          );
-        } catch (syncErr: any) {
-          console.error("Sync error during login:", syncErr);
-        }
+      // Luôn đồng bộ dữ liệu mới nhất trước khi kiểm tra (Đặc biệt cho người dùng system vừa tạo)
+      setSyncStatus("Đang xác thực thông tin tài khoản...");
+      let staffList: StaffMember[] = [];
+      try {
+        staffList = await syncStaffDataFromServer();
+      } catch (syncErr: any) {
+        const savedStaff = localStorage.getItem('app_staff_list_v1');
+        staffList = savedStaff ? JSON.parse(savedStaff) : [];
       }
+
+      const foundUser = staffList.find(u => 
+        u.username.toLowerCase() === username.trim().toLowerCase() && 
+        String(u.password) === String(password).trim()
+      );
 
       if (foundUser) {
         if (!foundUser.active) {
-          setError("Tài khoản này đã bị khóa trên hệ thống.");
+          setError("Tài khoản này hiện đang bị tạm khóa.");
           setIsLoading(false);
           return;
         }
@@ -108,13 +96,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           username: foundUser.username,
           fullName: foundUser.fullName,
           role: foundUser.role,
-          isManager: foundUser.isManager
+          isManager: foundUser.isManager,
+          departmentId: foundUser.department
         });
       } else {
-        setError("Tài khoản hoặc mật khẩu không đúng.");
+        setError("Tên đăng nhập hoặc mật khẩu không chính xác.");
       }
     } catch (err) {
-      setError("Gặp sự cố khi xác thực. Vui lòng thử lại sau.");
+      setError("Hệ thống gặp sự cố. Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
       setSyncStatus(null);
@@ -122,40 +111,46 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 selection:bg-indigo-100 font-['Lexend']">
-      <div className="w-full max-w-[720px] animate-in fade-in zoom-in duration-700">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center justify-center w-44 h-44 bg-gradient-to-br from-[#5551ff] to-[#7c3aed] rounded-[56px] text-white shadow-2xl shadow-indigo-100 mb-12 transform hover:rotate-3 transition-transform duration-500">
-            <ShieldCheck size={88} strokeWidth={2} />
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 selection:bg-indigo-100 font-['Lexend']">
+      <div className="w-full max-w-[800px] animate-in fade-in zoom-in duration-700 flex flex-col items-center">
+        
+        {/* Logo Shield Section */}
+        <div className="relative mb-10 group">
+          <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full scale-150 group-hover:scale-[1.8] transition-transform duration-700"></div>
+          <div className="relative inline-flex items-center justify-center w-48 h-48 bg-gradient-to-br from-[#5b61f1] to-[#7c3aed] rounded-[64px] text-white shadow-[0_35px_60px_-15px_rgba(79,70,229,0.3)] border border-white/20 transform hover:rotate-3 transition-transform duration-500">
+            <ShieldCheck size={100} strokeWidth={2} />
           </div>
-          <h1 className="text-6xl md:text-7xl font-[900] text-[#0f172a] tracking-tight mb-2 uppercase">Kim Tâm Cát</h1>
         </div>
 
+        {/* Brand Title */}
+        <h1 className="text-7xl md:text-8xl font-[900] text-[#0f172a] tracking-tight mb-16 uppercase">Kim Tâm Cát</h1>
+
+        {/* Recent Accounts Panel (Optional - Slide-in) */}
         {recentAccounts.length > 0 && (
-          <div className="mb-14 animate-in slide-in-from-top-4 duration-1000">
-            <div className="flex items-center gap-4 mb-8 px-4">
-                <Zap size={20} className="text-amber-500 fill-amber-500" />
-                <h2 className="text-[14px] font-[900] text-slate-400 uppercase tracking-[0.3em]">Truy cập nhanh</h2>
+          <div className="w-full max-w-[650px] mb-12 animate-in slide-in-from-top-4 duration-1000">
+            <div className="flex items-center gap-4 mb-6 px-4">
+                <Zap size={22} className="text-amber-500 fill-amber-500" />
+                <h2 className="text-[14px] font-black text-slate-400 uppercase tracking-[0.3em]">Truy cập nhanh</h2>
             </div>
             <div className="grid grid-cols-2 gap-6">
               {recentAccounts.map((account) => (
                 <div 
                   key={account.username}
                   onClick={() => handleQuickLogin(account)}
-                  className="group relative bg-white border border-slate-100 p-9 rounded-[40px] shadow-sm hover:shadow-2xl hover:border-indigo-200 transition-all cursor-pointer overflow-hidden flex items-center gap-6 active:scale-95"
+                  className="group relative bg-white border border-slate-100 p-8 rounded-[40px] shadow-sm hover:shadow-2xl hover:border-indigo-200 transition-all cursor-pointer flex items-center gap-6 active:scale-95"
                 >
                   <div className="w-16 h-16 bg-indigo-50 rounded-[24px] flex items-center justify-center text-indigo-600 font-black text-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
                     {account.fullName.charAt(0)}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[18px] font-black text-slate-900 truncate leading-none uppercase tracking-tight">{account.fullName}</p>
-                    <p className="text-[12px] font-black text-indigo-400 uppercase mt-2.5 tracking-[0.15em]">{account.role}</p>
+                    <p className="text-[12px] font-black text-indigo-400 uppercase mt-2.5 tracking-[0.15em]">{account.role.replace('_', ' ')}</p>
                   </div>
                   <button 
                     onClick={(e) => removeRecent(e, account.username)}
                     className="absolute top-4 right-4 p-2 text-slate-200 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
                   >
-                    <X size={16} strokeWidth={4} />
+                    <X size={18} strokeWidth={4} />
                   </button>
                 </div>
               ))}
@@ -163,27 +158,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
         )}
 
-        <div className="bg-white rounded-[80px] p-20 md:p-24 shadow-[0_60px_120px_-30px_rgba(79,70,229,0.2)] border border-slate-50 relative overflow-hidden">
+        {/* Main Login Form Container */}
+        <div className="w-full max-w-[650px] bg-white rounded-[80px] p-20 md:p-24 shadow-[0_80px_150px_-30px_rgba(79,70,229,0.25)] border-2 border-slate-50 relative overflow-hidden ring-1 ring-slate-100/50">
+          
           <form onSubmit={handleSubmit} className="space-y-12 relative z-10">
             {syncStatus && (
-              <div className="bg-indigo-50 border border-indigo-100 p-8 rounded-[32px] flex items-center gap-5 animate-pulse">
-                <RefreshCw className="w-6 h-6 text-indigo-500 animate-spin" />
+              <div className="bg-indigo-50 border border-indigo-100 p-8 rounded-[32px] flex items-center gap-6 animate-pulse">
+                <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" strokeWidth={3} />
                 <p className="text-[14px] font-black text-indigo-700 uppercase tracking-tight">{syncStatus}</p>
               </div>
             )}
 
             {error && (
-              <div className="bg-rose-50 border border-rose-100 p-8 rounded-[32px] flex items-center gap-5 animate-in shake duration-300">
-                <AlertCircle size={24} className="text-rose-500 shrink-0" strokeWidth={3} />
-                <p className="text-[14px] font-black text-rose-700 uppercase tracking-tight leading-tight">{error}</p>
+              <div className="bg-rose-50 border border-rose-100 p-8 rounded-[32px] flex items-center gap-6 animate-in shake duration-300">
+                <AlertCircle size={32} className="text-rose-500 shrink-0" strokeWidth={3} />
+                <p className="text-[15px] font-black text-rose-700 uppercase tracking-tight leading-tight">{error}</p>
               </div>
             )}
 
-            <div className="space-y-5">
-              <label className="text-[14px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Tài khoản</label>
+            {/* Input Account */}
+            <div className="space-y-6">
+              <label className="text-[16px] font-black text-slate-400 uppercase tracking-[0.35em] ml-6 block">Tài khoản</label>
               <div className="relative group">
-                <div className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5551ff] transition-colors">
-                  <UserIcon size={32} />
+                <div className="absolute left-10 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
+                  <UserIcon size={36} strokeWidth={2.5} />
                 </div>
                 <input
                   type="text"
@@ -191,17 +189,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-24 pr-10 py-8 bg-slate-50 border-2 border-transparent rounded-[40px] outline-none focus:border-[#5551ff] focus:bg-white transition-all font-black text-slate-800 text-xl placeholder:text-slate-300 disabled:opacity-50"
+                  className="w-full pl-28 pr-12 py-9 bg-slate-50 border-4 border-transparent rounded-[48px] outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-black text-slate-800 text-2xl placeholder:text-slate-300 disabled:opacity-50"
                   placeholder="Username"
                 />
               </div>
             </div>
 
-            <div className="space-y-5">
-              <label className="text-[14px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Mật khẩu</label>
+            {/* Input Password */}
+            <div className="space-y-6">
+              <label className="text-[16px] font-black text-slate-400 uppercase tracking-[0.35em] ml-6 block">Mật khẩu</label>
               <div className="relative group">
-                <div className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5551ff] transition-colors">
-                  <Lock size={32} />
+                <div className="absolute left-10 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
+                  <Lock size={36} strokeWidth={2.5} />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -209,45 +208,57 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-24 pr-24 py-8 bg-slate-50 border-2 border-transparent rounded-[40px] outline-none focus:border-[#5551ff] focus:bg-white transition-all font-black text-slate-800 text-xl placeholder:text-slate-300 disabled:opacity-50"
+                  className="w-full pl-28 pr-28 py-9 bg-slate-50 border-4 border-transparent rounded-[48px] outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-black text-slate-800 text-2xl placeholder:text-slate-300 disabled:opacity-50"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#5551ff] transition-colors p-2"
+                  className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#5b61f1] transition-colors p-3"
                 >
-                  {showPassword ? <EyeOff size={32} /> : <Eye size={32} />}
+                  {showPassword ? <EyeOff size={36} strokeWidth={2.5} /> : <Eye size={36} strokeWidth={2.5} />}
                 </button>
               </div>
             </div>
 
+            {/* Login Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-[#5551ff] to-[#7c3aed] hover:from-[#4a47e6] hover:to-[#6d31cc] disabled:from-[#a5a3ff] disabled:to-[#c4b5fd] text-white font-black py-9 rounded-[40px] shadow-2xl shadow-indigo-100 transition-all flex items-center justify-center gap-6 transform active:scale-[0.98] mt-8 group"
+              className="w-full bg-gradient-to-r from-[#5b61f1] to-[#7c3aed] hover:from-[#4a4ec4] hover:to-[#6d32ce] disabled:from-[#a5a3ff] disabled:to-[#c4b5fd] text-white font-[900] py-10 rounded-[48px] shadow-[0_30px_60px_-15px_rgba(91,97,241,0.4)] transition-all flex items-center justify-center gap-6 transform active:scale-[0.97] mt-12 group"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-10 h-10 animate-spin" />
+                  <Loader2 className="w-12 h-12 animate-spin" strokeWidth={3} />
                   <span className="text-2xl uppercase tracking-[0.3em]">Đang xử lý...</span>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl uppercase tracking-[0.3em]">Đăng nhập ngay</span>
+                  <span className="text-2xl uppercase tracking-[0.35em]">Đăng nhập ngay</span>
                 </>
               )}
             </button>
           </form>
+
+          {/* Background Decorative Element */}
+          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-50/40 rounded-full blur-3xl"></div>
         </div>
         
-        <p className="text-center mt-20 text-slate-400 font-black text-[12px] uppercase tracking-[0.3em] opacity-40">
-          Version 2.5.0 • Powered by Kim Tâm Cát Pro
+        {/* Footer Version Info */}
+        <p className="text-center mt-24 text-slate-400 font-black text-[14px] uppercase tracking-[0.4em] opacity-40">
+          VERSION 2.5.0 • POWERED BY KIM TÂM CÁT PRO
         </p>
       </div>
       
       <style>{`
-        input::placeholder { font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; font-size: 16px; opacity: 0.5; }
+        input::placeholder { font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; font-size: 18px; opacity: 0.3; }
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
       `}</style>
     </div>
   );

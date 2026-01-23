@@ -23,7 +23,6 @@ import { addLog } from './actions/logger';
 const App: React.FC = () => {
   const { tasks, setTasks, addTask, updateTaskStatus, updateTaskTitle, updateTaskQuadrant, deleteTask, progress } = useTaskLogic();
   
-  // SỬ DỤNG KEY CHUẨN current_session_user
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('current_session_user');
     return saved ? JSON.parse(saved) : null;
@@ -60,18 +59,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
       localStorage.setItem('current_session_user', JSON.stringify(user));
-      
       const savedRecent = localStorage.getItem('app_recent_accounts_v1');
       let recentList = savedRecent ? JSON.parse(savedRecent) : [];
-      
-      const accountToAdd = {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        isManager: user.isManager
-      };
-      
+      const accountToAdd = { id: user.id, username: user.username, fullName: user.fullName, role: user.role, isManager: user.isManager };
       recentList = [accountToAdd, ...recentList.filter((a: any) => a.username !== user.username)].slice(0, 4);
       localStorage.setItem('app_recent_accounts_v1', JSON.stringify(recentList));
     } else {
@@ -140,14 +130,22 @@ const App: React.FC = () => {
   };
 
   const robustParseJSON = (rawText: string) => {
+    let cleaned = rawText.trim();
+    if (cleaned.startsWith('"data":') && !cleaned.startsWith('{')) {
+      cleaned = '{' + cleaned + '}';
+    }
     try {
-      return JSON.parse(rawText);
+      return JSON.parse(cleaned);
     } catch (e) {
-      const fixedText = rawText.replace(/"data":\s*({[\s\S]*})\s*}/g, (match, p1) => {
-        if (p1.includes('}, {')) return `"data": [${p1}]}`;
-        return match;
-      });
-      return JSON.parse(fixedText);
+      // Tìm khối JSON đầu tiên nếu có rác
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        try {
+          return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+        } catch (inner) {}
+      }
+      throw e;
     }
   };
 
@@ -157,10 +155,8 @@ const App: React.FC = () => {
       showToast("Chưa cấu hình Task Webhook", "error");
       return;
     }
-
     setIsSyncingTasks(true);
     addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_TASKS', message: 'Đang tải danh sách công việc...' });
-
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -168,17 +164,22 @@ const App: React.FC = () => {
         body: JSON.stringify({ action: 'SYNC_TASKS', timestamp: new Date().toISOString() }),
         mode: 'cors'
       });
-      
       const rawText = await response.text();
       const result = robustParseJSON(rawText);
       let processedList: Task[] = [];
-
       if (result.status === "success" && Array.isArray(result.data)) {
         processedList = result.data.map((item: any) => item.data?.task || item.task || item).filter(Boolean);
       } else if (Array.isArray(result)) {
         processedList = result;
+      } else if (result.data) {
+        // Xử lý đệ quy tìm mảng task
+        const findTasks = (obj: any): any[] => {
+          if (Array.isArray(obj)) return obj;
+          for (const k in obj) { if (typeof obj[k] === 'object') { const res = findTasks(obj[k]); if (res.length > 0) return res; } }
+          return [];
+        };
+        processedList = findTasks(result);
       }
-
       if (processedList.length > 0) {
         setTasks(processedList);
         showToast(`Đồng bộ thành công ${processedList.length} công việc`);
@@ -240,7 +241,7 @@ const App: React.FC = () => {
   if (!user) return <LoginView onLogin={setUser} />;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 md:p-8 lg:p-10 overflow-x-hidden selection:bg-indigo-100 antialiased font-sans">
+    <div className="min-h-screen bg-[#f8fafc] p-6 md:p-8 lg:p-10 overflow-x-hidden selection:bg-indigo-100 antialiased font-['Lexend']">
       <div className="max-w-[1440px] mx-auto">
         <Header activeTab={activeTab} onTabChange={setActiveTab} viewMode={viewMode} onViewModeChange={setViewMode} volume={volume} onVolumeChange={setVolume} currentSoundUrl={soundUrl} onSoundChange={setSoundUrl} currentUser={user} onLogout={handleLogout} onSwitchUser={setUser} />
         
