@@ -1,18 +1,24 @@
-
-import React, { useState } from 'react';
-import { Settings, Globe, Save, Info, CheckCircle, ExternalLink, RotateCcw, ListChecks } from 'lucide-react';
-import { SYSTEM_DEFAULTS } from '../../../constants';
+import React, { useState, useMemo } from 'react';
+import { Settings, Globe, Save, Info, CheckCircle, ExternalLink, RotateCcw, ListChecks, Cpu } from 'lucide-react';
+import { API_CONFIG } from '../../../config/apiConfig';
 import { ConnectionLogView } from './ConnectionLogView';
 import { addLog } from '../../../actions/logger';
 
 export const SettingsView: React.FC = () => {
+  // Lấy giá trị từ LocalStorage, nếu không có thì lấy từ Biến môi trường
   const [webhookUrl, setWebhookUrl] = useState(() => {
     return localStorage.getItem('system_make_webhook_url') || '';
   });
+  
   const [taskWebhookUrl, setTaskWebhookUrl] = useState(() => {
     return localStorage.getItem('system_task_webhook_url') || '';
   });
+
   const [isSaved, setIsSaved] = useState(false);
+
+  // Kiểm tra xem có đang dùng biến môi trường không
+  const isUsingEnvForStaff = !webhookUrl && !!API_CONFIG.MAKE_STAFF_URL;
+  const isUsingEnvForTask = !taskWebhookUrl && !!API_CONFIG.TASK_WEBHOOK_URL;
 
   const handleSave = () => {
     // Lưu System Webhook
@@ -38,19 +44,25 @@ export const SettingsView: React.FC = () => {
 
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
+    // Phát tín hiệu để các component khác cập nhật
+    window.dispatchEvent(new Event('app_data_updated'));
   };
 
   const handleReset = () => {
-    setWebhookUrl('');
-    setTaskWebhookUrl('');
-    localStorage.removeItem('system_make_webhook_url');
-    localStorage.removeItem('system_task_webhook_url');
-    addLog({
-      type: 'LOCAL',
-      status: 'SUCCESS',
-      action: 'RESET CONFIG',
-      message: 'Đã khôi phục cài đặt gốc cho tất cả Webhook.'
-    });
+    if (window.confirm('Khôi phục cài đặt gốc? Tất cả các URL tùy chỉnh sẽ bị xóa và quay về sử dụng biến môi trường.')) {
+      setWebhookUrl('');
+      setTaskWebhookUrl('');
+      localStorage.removeItem('system_make_webhook_url');
+      localStorage.removeItem('system_task_webhook_url');
+      
+      addLog({
+        type: 'LOCAL',
+        status: 'SUCCESS',
+        action: 'RESET CONFIG',
+        message: 'Đã khôi phục cài đặt gốc cho tất cả Webhook.'
+      });
+      window.dispatchEvent(new Event('app_data_updated'));
+    }
   };
 
   return (
@@ -71,6 +83,18 @@ export const SettingsView: React.FC = () => {
                  </div>
                  <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">Hệ thống Webhook URL</h3>
               </div>
+              
+              {isUsingEnvForStaff ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 animate-pulse">
+                  <Cpu size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Environment</span>
+                </div>
+              ) : webhookUrl && (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                  <CheckCircle size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Custom URL</span>
+                </div>
+              )}
             </div>
             
             <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xl">
@@ -82,18 +106,18 @@ export const SettingsView: React.FC = () => {
                 type="text"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder={`Mặc định: ${SYSTEM_DEFAULTS.MAKE_WEBHOOK_URL}`}
+                placeholder={API_CONFIG.MAKE_STAFF_URL || 'Chưa cấu hình biến môi trường...'}
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 focus:bg-white transition-all font-bold text-slate-800 placeholder:text-slate-300 shadow-sm"
               />
-              {!webhookUrl && (
-                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest ml-2 flex items-center gap-1.5">
-                  <CheckCircle size={10} /> Đang dùng URL mặc định hệ thống
+              {!webhookUrl && API_CONFIG.MAKE_STAFF_URL && (
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest ml-2 flex items-center gap-1.5 opacity-60">
+                  <Info size={10} /> Hệ thống sẽ tự động dùng URL từ .env nếu ô này để trống
                 </p>
               )}
             </div>
           </div>
 
-          {/* Section 2: Task Webhook (New) */}
+          {/* Section 2: Task Webhook */}
           <div className="space-y-4 pt-4 border-t border-slate-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -102,6 +126,18 @@ export const SettingsView: React.FC = () => {
                  </div>
                  <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">Task Webhook URL</h3>
               </div>
+
+              {isUsingEnvForTask ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 animate-pulse">
+                  <Cpu size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Environment</span>
+                </div>
+              ) : taskWebhookUrl && (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                  <CheckCircle size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Custom URL</span>
+                </div>
+              )}
             </div>
             
             <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xl">
@@ -113,12 +149,12 @@ export const SettingsView: React.FC = () => {
                 type="text"
                 value={taskWebhookUrl}
                 onChange={(e) => setTaskWebhookUrl(e.target.value)}
-                placeholder={`Mặc định: ${SYSTEM_DEFAULTS.TASK_WEBHOOK_URL}`}
+                placeholder={API_CONFIG.TASK_WEBHOOK_URL || 'Chưa cấu hình biến môi trường...'}
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-50 focus:border-emerald-500 focus:bg-white transition-all font-bold text-slate-800 placeholder:text-slate-300 shadow-sm"
               />
-              {!taskWebhookUrl && (
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest ml-2 flex items-center gap-1.5">
-                  <CheckCircle size={10} /> Đang dùng URL mặc định cho Task
+              {!taskWebhookUrl && API_CONFIG.TASK_WEBHOOK_URL && (
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-2 flex items-center gap-1.5 opacity-60">
+                  <Info size={10} /> Hệ thống sẽ tự động dùng URL từ .env nếu ô này để trống
                 </p>
               )}
             </div>
