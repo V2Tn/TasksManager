@@ -67,8 +67,18 @@ export const DepartmentDetailsModal: React.FC<DepartmentDetailsModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let finalId = department?.id;
+    if (!finalId) {
+      // Logic tạo ID tự động tăng cho phòng ban mới
+      const savedDepts = localStorage.getItem('app_department_list_v2');
+      const deptList: Department[] = savedDepts ? JSON.parse(savedDepts) : [];
+      const maxId = deptList.reduce((max, d) => (Number(d.id) > max ? Number(d.id) : max), 0);
+      finalId = maxId + 1;
+    }
+
     onSave({
-      id: department?.id || Date.now(),
+      id: finalId,
       createdAt: department?.createdAt || new Date().toISOString().split('T')[0],
       ...formData
     }, assignedMemberIds);

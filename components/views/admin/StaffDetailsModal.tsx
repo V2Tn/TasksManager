@@ -69,8 +69,18 @@ export const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ member, is
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let finalId = member?.id;
+    if (!finalId) {
+      // Logic tạo ID tự động tăng cho nhân sự mới
+      const savedStaff = localStorage.getItem('app_staff_list_v1');
+      const staffList: StaffMember[] = savedStaff ? JSON.parse(savedStaff) : [];
+      const maxId = staffList.reduce((max, s) => (Number(s.id) > max ? Number(s.id) : max), 0);
+      finalId = maxId + 1;
+    }
+
     onSave({
-      id: member?.id || Date.now(),
+      id: finalId,
       ...formData
     });
   };
