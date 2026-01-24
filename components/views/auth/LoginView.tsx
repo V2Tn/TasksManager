@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Lock, User as UserIcon, ShieldCheck, AlertCircle, Eye, EyeOff, X, Zap, Loader2, RefreshCw } from 'lucide-react';
 import { User, UserRole, StaffMember } from '../../../types';
@@ -70,7 +69,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         return;
       }
 
-      setSyncStatus("Đang đồng bộ dữ liệu...");
+      setSyncStatus("Đang đồng bộ...");
       let staffList: StaffMember[] = [];
       try {
         staffList = await syncStaffDataFromServer();
@@ -86,7 +85,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
       if (foundUser) {
         if (!foundUser.active) {
-          setError("Tài khoản đang bị tạm khóa.");
+          setError("Tài khoản đang bị khóa.");
           setIsLoading(false);
           return;
         }
@@ -103,7 +102,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         setError("Tài khoản hoặc mật khẩu không đúng.");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi xác thực hệ thống.");
+      setError(err.message || "Lỗi xác thực.");
     } finally {
       setIsLoading(false);
       setSyncStatus(null);
@@ -112,45 +111,45 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 selection:bg-indigo-100 font-['Lexend']">
-      <div className="w-full max-w-[500px] animate-in fade-in zoom-in duration-700 flex flex-col items-center">
+      <div className="w-full max-w-[420px] animate-in fade-in zoom-in duration-700 flex flex-col items-center">
         
-        {/* Logo Section - Cân đối lại */}
-        <div className="relative mb-8 group">
-          <div className="absolute inset-0 bg-indigo-500/10 blur-[80px] rounded-full scale-150"></div>
-          <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#5b61f1] to-[#7c3aed] rounded-[32px] text-white shadow-2xl border border-white/20 transform hover:rotate-3 transition-transform duration-500">
-            <ShieldCheck size={48} strokeWidth={2} />
+        {/* Logo Section - Nhỏ gọn lại */}
+        <div className="relative mb-6 group">
+          <div className="absolute inset-0 bg-indigo-500/10 blur-[60px] rounded-full scale-150"></div>
+          <div className="relative inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#5b61f1] to-[#7c3aed] rounded-[28px] text-white shadow-xl border border-white/20 transform hover:rotate-3 transition-transform duration-500">
+            <ShieldCheck size={40} strokeWidth={2} />
           </div>
         </div>
 
-        {/* Brand Title - Tinh tế hơn */}
-        <h1 className="text-4xl md:text-5xl font-[900] text-[#0f172a] tracking-tighter mb-12 uppercase">Kim Tâm Cát</h1>
+        {/* Brand Title - Nhỏ gọn lại */}
+        <h1 className="text-3xl md:text-4xl font-[900] text-[#0f172a] tracking-tight mb-8 uppercase">Kim Tâm Cát</h1>
 
-        {/* Quick Access Panel - Gọn gàng hơn */}
+        {/* Quick Access Panel - Nhỏ gọn lại */}
         {recentAccounts.length > 0 && (
-          <div className="w-full mb-10 animate-in slide-in-from-top-4 duration-1000">
-            <div className="flex items-center gap-3 mb-4 px-2">
-                <Zap size={16} className="text-amber-500 fill-amber-500" />
-                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Truy cập nhanh</h2>
+          <div className="w-full mb-8 animate-in slide-in-from-top-4 duration-1000">
+            <div className="flex items-center gap-3 mb-3 px-2">
+                <Zap size={14} className="text-amber-500 fill-amber-500" />
+                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Truy cập nhanh</h2>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {recentAccounts.map((account) => (
                 <div 
                   key={account.username}
                   onClick={() => handleQuickLogin(account)}
-                  className="group relative bg-white border border-slate-100 p-4 rounded-3xl shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all cursor-pointer flex items-center gap-4 active:scale-95"
+                  className="group relative bg-white border border-slate-100 p-3 rounded-2xl shadow-sm hover:shadow-lg transition-all cursor-pointer flex items-center gap-3 active:scale-95"
                 >
-                  <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black text-xs group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
                     {account.fullName.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[13px] font-black text-slate-900 truncate leading-none uppercase tracking-tight">{account.fullName}</p>
-                    <p className="text-[9px] font-bold text-indigo-400 uppercase mt-1.5 tracking-wider">{account.role.replace('_', ' ')}</p>
+                    <p className="text-[11px] font-black text-slate-900 truncate uppercase tracking-tight">{account.fullName}</p>
+                    <p className="text-[8px] font-bold text-indigo-400 uppercase mt-1 tracking-wider">{account.role.replace('_', ' ')}</p>
                   </div>
                   <button 
                     onClick={(e) => removeRecent(e, account.username)}
-                    className="absolute top-2 right-2 p-1.5 text-slate-200 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                    className="absolute top-1 right-1 p-1 text-slate-200 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
                   >
-                    <X size={14} strokeWidth={3} />
+                    <X size={12} strokeWidth={3} />
                   </button>
                 </div>
               ))}
@@ -158,29 +157,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
         )}
 
-        {/* Main Login Form Container - Đưa về kích thước chuẩn */}
-        <div className="w-full bg-white rounded-[48px] p-10 md:p-12 shadow-[0_40px_100px_-20px_rgba(79,70,229,0.15)] border border-slate-50 relative overflow-hidden">
+        {/* Main Login Form Container - Thu gọn Padding */}
+        <div className="w-full bg-white rounded-[40px] p-8 md:p-10 shadow-[0_30px_60px_-15px_rgba(79,70,229,0.1)] border border-slate-50 relative overflow-hidden">
           
-          <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
+          <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
             {syncStatus && (
-              <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center gap-4 animate-pulse">
-                <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" strokeWidth={3} />
-                <p className="text-[11px] font-black text-indigo-700 uppercase tracking-tight">{syncStatus}</p>
+              <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex items-center gap-3 animate-pulse">
+                <RefreshCw className="w-4 h-4 text-indigo-500 animate-spin" strokeWidth={3} />
+                <p className="text-[10px] font-black text-indigo-700 uppercase tracking-tight">{syncStatus}</p>
               </div>
             )}
 
             {error && (
-              <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-4 animate-in shake duration-300">
-                <AlertCircle size={20} className="text-rose-500 shrink-0" strokeWidth={3} />
-                <p className="text-[11px] font-black text-rose-700 uppercase tracking-tight leading-tight">{error}</p>
+              <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-center gap-3 animate-in shake duration-300">
+                <AlertCircle size={18} className="text-rose-500 shrink-0" strokeWidth={3} />
+                <p className="text-[10px] font-black text-rose-700 uppercase tracking-tight leading-tight">{error}</p>
               </div>
             )}
 
-            <div className="space-y-3">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4 block">Tài khoản</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3 block">Tài khoản</label>
               <div className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
-                  <UserIcon size={20} strokeWidth={2.5} />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
+                  <UserIcon size={18} strokeWidth={2.5} />
                 </div>
                 <input
                   type="text"
@@ -188,17 +187,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-14 pr-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
-                  placeholder="Nhập tên đăng nhập"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
+                  placeholder="USERNAME"
                 />
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4 block">Mật khẩu</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3 block">Mật khẩu</label>
               <div className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
-                  <Lock size={20} strokeWidth={2.5} />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#5b61f1] transition-colors">
+                  <Lock size={18} strokeWidth={2.5} />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -206,15 +205,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-14 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-12 py-3 bg-slate-50 border-2 border-transparent rounded-xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#5b61f1] transition-colors p-2"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#5b61f1] transition-colors p-2"
                 >
-                  {showPassword ? <EyeOff size={20} strokeWidth={2.5} /> : <Eye size={20} strokeWidth={2.5} />}
+                  {showPassword ? <EyeOff size={18} strokeWidth={2.5} /> : <Eye size={18} strokeWidth={2.5} />}
                 </button>
               </div>
             </div>
@@ -222,24 +221,24 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#5b61f1] hover:bg-[#4a4ec4] disabled:bg-slate-200 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] mt-4"
+              className="w-full bg-[#5b61f1] hover:bg-[#4a4ec4] disabled:bg-slate-200 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-50 transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] mt-2"
             >
               {isLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin" strokeWidth={3} />
+                <Loader2 className="w-5 h-5 animate-spin" strokeWidth={3} />
               ) : (
-                <span className="text-sm uppercase tracking-[0.2em]">Đăng nhập hệ thống</span>
+                <span className="text-xs uppercase tracking-widest">Đăng nhập</span>
               )}
             </button>
           </form>
         </div>
         
-        <p className="text-center mt-12 text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] opacity-40">
+        <p className="text-center mt-8 text-slate-400 font-black text-[9px] uppercase tracking-widest opacity-40">
           KIM TÂM CÁT • v2.5.0
         </p>
       </div>
       
       <style>{`
-        input::placeholder { font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-size: 11px; opacity: 0.4; }
+        input::placeholder { font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-size: 10px; opacity: 0.4; }
         .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake {
           10%, 90% { transform: translate3d(-1px, 0, 0); }

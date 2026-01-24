@@ -4,15 +4,38 @@ import { addLog } from './logger';
 
 /**
  * Hàm phân giải JSON cực kỳ an toàn, giải quyết lỗi 'Expected double-quoted property name'
+ * bằng cách tự động bọc các đối tượng anh em vào mảng []
  */
 const safeJsonParse = (text: string): any => {
   let cleaned = text.trim();
   
-  // Xử lý các lỗi phổ biến từ Webhook/Google Sheets trả về qua Make
-  // 1. Loại bỏ trailing commas (dấu phẩy thừa ở cuối danh sách/đối tượng)
+  // 1. Loại bỏ trailing commas
   cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
   
-  // 2. Nếu Make trả về fragment "data": {...} mà thiếu ngoặc nhọn bọc ngoài
+  // 2. Xử lý lỗi đặc thù: "data": {obj1}, {obj2} -> "data": [{obj1}, {obj2}]
+  // Chúng ta tìm kiếm phần nội dung sau "data": cho đến dấu đóng ngoặc cuối cùng của root
+  if (cleaned.includes('"data":') && cleaned.includes('}, {')) {
+    try {
+      const dataKey = '"data":';
+      const dataStartIdx = cleaned.indexOf(dataKey) + dataKey.length;
+      const lastBraceIdx = cleaned.lastIndexOf('}'); // Dấu đóng ngoặc của root
+      
+      if (dataStartIdx !== -1 && lastBraceIdx > dataStartIdx) {
+        const prefix = cleaned.substring(0, dataStartIdx).trim();
+        const content = cleaned.substring(dataStartIdx, lastBraceIdx).trim();
+        const suffix = cleaned.substring(lastBraceIdx);
+        
+        // Nếu nội dung chứa dấu phẩy phân tách các đối tượng mà không có ngoặc mảng
+        if (content.includes('}, {') && !content.startsWith('[')) {
+          cleaned = `${prefix} [${content}] ${suffix}`;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi khi cố gắng sửa cấu trúc JSON:", e);
+    }
+  }
+
+  // 3. Nếu Make trả về fragment "data": {...} mà thiếu ngoặc nhọn bọc ngoài cùng
   if (cleaned.startsWith('"data":') && !cleaned.startsWith('{')) {
     cleaned = '{' + cleaned + '}';
   }
@@ -20,11 +43,10 @@ const safeJsonParse = (text: string): any => {
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    // 3. Cố gắng tìm khối JSON hợp lệ đầu tiên bằng Brute Force
+    // 4. Cố gắng tìm khối JSON hợp lệ đầu tiên bằng Brute Force
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1) {
-      // Fix: Declare 'extracted' outside the try block so it is accessible in the catch block
       const extracted = cleaned.substring(firstBrace, lastBrace + 1);
       try {
         return JSON.parse(extracted);
@@ -38,6 +60,7 @@ const safeJsonParse = (text: string): any => {
 
 /**
  * Hàm trích xuất nhân viên đệ quy: Tìm kiếm sâu trong mọi ngóc ngách của dữ liệu trả về
+ * Hỗ trợ cấu trúc lồng nhau data.data.member
  */
 const extractStaffFromResponse = (result: any): StaffMember[] => {
   if (!result) return [];
@@ -48,8 +71,10 @@ const extractStaffFromResponse = (result: any): StaffMember[] => {
   const findMembersRecursive = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
 
-    // Kiểm tra cấu trúc có chứa thông tin đăng nhập tối thiểu
-    if (obj.username && (obj.password !== undefined || obj.role)) {
+    // Kiểm tra cấu trúc có chứa thông tin đăng nhập (username và password/role)
+    const isMember = obj.username && (obj.password !== undefined || obj.role);
+    
+    if (isMember) {
       const id = obj.id || obj.username;
       if (!seenIds.has(id)) {
         foundMembers.push(obj as StaffMember);
@@ -57,7 +82,7 @@ const extractStaffFromResponse = (result: any): StaffMember[] => {
       }
     }
 
-    // Duyệt sâu hơn
+    // Duyệt sâu hơn vào các mảng hoặc đối tượng con
     if (Array.isArray(obj)) {
       obj.forEach(item => findMembersRecursive(item));
     } else {
