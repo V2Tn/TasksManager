@@ -131,23 +131,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               </div>
             </div>
 
-            {/* Khung thời gian với viền xanh như trong hình */}
-            <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-2 border-2 border-[#5b61f1] rounded-xl text-[9px] font-[800] uppercase tracking-wider ${isDone ? 'text-slate-300 border-slate-200' : 'text-slate-700'}`}>
-              <div className="flex items-center gap-1">
+            {/* Khung thời gian: Không wrap (flex-nowrap) và cuộn ngang nếu cần */}
+            <div className={`flex flex-nowrap items-center gap-x-4 p-2 border-2 border-[#5b61f1] rounded-xl text-[9px] font-[800] uppercase tracking-wider overflow-x-auto scrollbar-hide ${isDone ? 'text-slate-300 border-slate-200' : 'text-slate-700'}`}>
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Clock size={11} className="text-slate-400" />
                 <span>TẠO: <span className="text-slate-900">{task.createdAtDisplay}</span></span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <RefreshCw size={11} className="text-slate-400" />
                 <span>CẬP NHẬT: <span className="text-slate-900">{formatSmartDate(task.updatedAt)}</span></span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Calendar size={11} className={isDone ? "text-slate-300" : "text-rose-500"} />
                 <span className={isDone ? "" : "text-rose-600 font-[900]"}>HẠN: {task.endTime}</span>
               </div>
             </div>
 
-            {/* Dòng trạng thái, người giao/nhận và các nút hành động cùng hàng */}
             <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
               <div className="flex items-center gap-2">
                 <span className={`px-2.5 py-1 rounded-lg text-[9px] font-[900] border uppercase tracking-widest shadow-sm ${

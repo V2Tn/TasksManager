@@ -43,7 +43,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isHighRole = useMemo(() => {
     if (!currentUser) return false;
-    // Fix: Removed non-existent UserRole.DEPARTMENT_HEAD
     const highRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER];
     return highRoles.includes(currentUser.role);
   }, [currentUser]);
@@ -100,6 +99,12 @@ export const Header: React.FC<HeaderProps> = ({
     audio.play().catch(() => {});
   };
 
+  const tabBtnClass = (id: string) => `
+    flex-shrink-0 flex items-center justify-center gap-2 px-4 md:px-5 py-2.5 rounded-xl 
+    text-[11px] md:text-sm font-black transition-all whitespace-nowrap
+    ${activeTab === id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'}
+  `;
+
   return (
     <header className="flex flex-col gap-6 mb-8 md:mb-12 px-1">
       <div className="flex flex-col md:flex-row md:items-center justify-between w-full gap-6">
@@ -123,66 +128,30 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-auto overflow-x-auto no-scrollbar scroll-smooth">
-            <button 
-              onClick={() => onTabChange('tasks')}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                activeTab === 'tasks' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-              }`}
-            >
-              <Layout size={16} strokeWidth={2.5} />
-              CÔNG VIỆC
+          <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-auto overflow-x-auto scrollbar-hide scroll-smooth">
+            <button onClick={() => onTabChange('tasks')} className={tabBtnClass('tasks')}>
+              <Layout size={16} strokeWidth={2.5} /> CÔNG VIỆC
             </button>
-            <button 
-              onClick={() => onTabChange('reports')}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                activeTab === 'reports' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-              }`}
-            >
-              <BarChart2 size={16} strokeWidth={2.5} />
-              BÁO CÁO
+            <button onClick={() => onTabChange('reports')} className={tabBtnClass('reports')}>
+              <BarChart2 size={16} strokeWidth={2.5} /> BÁO CÁO
             </button>
             
             {isHighRole && (
-              <button 
-                onClick={() => onTabChange('team')}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                  activeTab === 'team' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-                }`}
-              >
-                <Users2 size={16} strokeWidth={2.5} />
-                ĐỘI NHÓM
+              <button onClick={() => onTabChange('team')} className={tabBtnClass('team')}>
+                <Users2 size={16} strokeWidth={2.5} /> ĐỘI NHÓM
               </button>
             )}
 
             {isAdmin && (
               <>
-                <button 
-                  onClick={() => onTabChange('staff')}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                    activeTab === 'staff' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  <Users size={16} strokeWidth={2.5} />
-                  NHÂN VIÊN
+                <button onClick={() => onTabChange('staff')} className={tabBtnClass('staff')}>
+                  <Users size={16} strokeWidth={2.5} /> NHÂN VIÊN
                 </button>
-                <button 
-                  onClick={() => onTabChange('departments')}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                    activeTab === 'departments' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  <Briefcase size={16} strokeWidth={2.5} />
-                  PHÒNG BAN
+                <button onClick={() => onTabChange('departments')} className={tabBtnClass('departments')}>
+                  <Briefcase size={16} strokeWidth={2.5} /> PHÒNG BAN
                 </button>
-                <button 
-                  onClick={() => onTabChange('settings')}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all whitespace-nowrap ${
-                    activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  <Settings size={16} strokeWidth={2.5} />
-                  CẤU HÌNH
+                <button onClick={() => onTabChange('settings')} className={tabBtnClass('settings')}>
+                  <Settings size={16} strokeWidth={2.5} /> CẤU HÌNH
                 </button>
               </>
             )}
@@ -270,7 +239,6 @@ export const Header: React.FC<HeaderProps> = ({
                   {isHighRole && <ChevronDown size={10} className="absolute -bottom-1 left-1/2 -translate-x-1/2" />}
                </button>
 
-               {/* Standard User Menu for Staff */}
                {showUserMenu && !isHighRole && (
                  <div className="absolute top-full right-0 mt-3 w-52 bg-white rounded-2xl shadow-2xl border border-slate-50 p-2 z-[100] animate-in fade-in zoom-in duration-200 origin-top-right">
                     <div className="px-4 py-3 border-b border-slate-50 mb-1">
@@ -287,7 +255,6 @@ export const Header: React.FC<HeaderProps> = ({
                  </div>
                )}
 
-               {/* Advanced Switcher Menu for Admin/Manager */}
                {showSwitcher && isHighRole && (
                  <div ref={switcherRef} className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] border border-slate-100 p-2 z-[100] animate-in fade-in zoom-in duration-300 origin-top-right">
                     <div className="px-5 py-4 border-b border-slate-50 mb-2">
