@@ -65,14 +65,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
     e.stopPropagation();
   };
 
+  // Hàm hỗ trợ lấy tên rút gọn (2 từ cuối)
+  const getShortName = (fullName: string): string => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length > 2) {
+      return parts.slice(-2).join(' ');
+    }
+    return fullName;
+  };
+
   const creatorDisplay = useMemo(() => {
     if (!task.createdById) return 'Hệ thống';
-    return task.createdById === currentUser?.id ? 'TÔI' : task.createdByLabel.toUpperCase();
+    if (task.createdById === currentUser?.id) return 'TÔI';
+    return getShortName(task.createdByLabel).toUpperCase();
   }, [task, currentUser]);
 
   const assigneeDisplay = useMemo(() => {
     if (!task.assigneeId) return 'TÔI';
-    return task.assigneeId === currentUser?.id ? 'TÔI' : task.assigneeLabel.toUpperCase();
+    if (task.assigneeId === currentUser?.id) return 'TÔI';
+    return getShortName(task.assigneeLabel).toUpperCase();
   }, [task, currentUser]);
 
   const canUpdateStatus = useMemo(() => {
@@ -149,7 +161,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-[900] border uppercase tracking-widest shadow-sm ${
+                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-[900] border uppercase tracking-widest shadow-sm shrink-0 ${
                   task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600' :
                   task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500' :
                   task.status === TaskStatus.PENDING ? 'bg-[#5b61f1] text-white border-[#5b61f1]' :
@@ -158,24 +170,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
                   {task.status === TaskStatus.DOING ? 'Đang làm' : task.status === TaskStatus.DONE ? 'Hoàn thành' : task.status === TaskStatus.PENDING ? 'Mới' : 'Hủy'}
                 </span>
 
-                <div className="flex items-center gap-2 bg-[#f8fafc] rounded-xl px-2.5 py-1 border border-slate-100">
+                <div className="flex items-center gap-2 bg-[#f8fafc] rounded-xl px-2.5 py-1 border border-slate-100 overflow-hidden">
                   <div className="flex items-center gap-1 text-[9px] font-[900] text-slate-500">
-                    <span className="truncate max-w-[50px]">{creatorDisplay}</span>
+                    <span className="whitespace-nowrap">{creatorDisplay}</span>
                   </div>
                   <ArrowRight size={10} className="text-slate-300 shrink-0" strokeWidth={3} />
                   <div className={`flex items-center gap-1 text-[9px] font-[900] ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
-                    <span className="truncate max-w-[50px]">{assigneeDisplay}</span>
+                    <span className="whitespace-nowrap">{assigneeDisplay}</span>
                   </div>
                 </div>
 
                 {isOverdue && (
-                  <span className="flex items-center gap-1 bg-rose-500 text-white px-2 py-1 rounded-lg text-[8px] font-[900] uppercase tracking-tighter shadow-lg shadow-rose-100">
+                  <span className="flex items-center gap-1 bg-rose-500 text-white px-2 py-1 rounded-lg text-[8px] font-[900] uppercase tracking-tighter shadow-lg shadow-rose-100 shrink-0">
                     TRỄ HẠN
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {canUpdateStatus ? (
                   <div className="flex items-center gap-1.5">
                     {actions.map(action => {
