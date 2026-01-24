@@ -98,7 +98,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
             : 'bg-white border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200'
       }`}
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {isEditing ? (
           <div className="space-y-4 animate-in fade-in duration-200">
             <input
@@ -127,84 +127,80 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
                     <Pencil size={16} />
                   </button>
                 )}
-                {/* Loại bỏ item deleted task theo yêu cầu */}
                 {canUpdateStatus && <div className="p-2 text-slate-300 cursor-grab"><GripVertical size={18} /></div>}
               </div>
             </div>
 
-            {/* Row mốc thời gian đầy đủ - Đã đổi "Sửa" thành "Cập nhật" */}
-            <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 py-3 border-y border-slate-50 text-[10px] font-[800] uppercase tracking-wider ${isDone ? 'text-slate-300 opacity-50' : 'text-slate-500'}`}>
-              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg whitespace-nowrap">
-                <Clock size={12} className="text-slate-400" />
-                <span>Tạo: <span className="text-slate-700">{task.createdAtDisplay}</span></span>
+            {/* Khung thời gian với viền xanh như trong hình */}
+            <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-2 border-2 border-[#5b61f1] rounded-xl text-[9px] font-[800] uppercase tracking-wider ${isDone ? 'text-slate-300 border-slate-200' : 'text-slate-700'}`}>
+              <div className="flex items-center gap-1">
+                <Clock size={11} className="text-slate-400" />
+                <span>TẠO: <span className="text-slate-900">{task.createdAtDisplay}</span></span>
               </div>
-              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg whitespace-nowrap">
-                <RefreshCw size={12} className="text-slate-400" />
-                <span>Cập nhật: <span className="text-slate-700">{formatSmartDate(task.updatedAt)}</span></span>
+              <div className="flex items-center gap-1">
+                <RefreshCw size={11} className="text-slate-400" />
+                <span>CẬP NHẬT: <span className="text-slate-900">{formatSmartDate(task.updatedAt)}</span></span>
               </div>
-              <div className="flex items-center gap-2 px-2 py-1 bg-rose-50 rounded-lg whitespace-nowrap">
-                <Calendar size={12} className={isDone ? "text-slate-300" : "text-rose-500"} />
-                <span className={isDone ? "" : "text-rose-600 font-[900]"}>Hạn: {task.endTime}</span>
+              <div className="flex items-center gap-1">
+                <Calendar size={11} className={isDone ? "text-slate-300" : "text-rose-500"} />
+                <span className={isDone ? "" : "text-rose-600 font-[900]"}>HẠN: {task.endTime}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 mt-1">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="shrink-0">
-                  <span className={`px-3 py-1 rounded-xl text-[10px] font-[900] border uppercase tracking-wider shadow-sm ${
-                    task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600' :
-                    task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500' :
-                    task.status === TaskStatus.PENDING ? 'bg-blue-600 text-white border-blue-600' :
-                    'bg-slate-400 text-white border-slate-400'
-                  }`}>
-                    {task.status === TaskStatus.DOING ? 'Đang làm' : task.status === TaskStatus.DONE ? 'Hoàn thành' : task.status === TaskStatus.PENDING ? 'Mới' : 'Hủy'}
-                  </span>
-                </div>
+            {/* Dòng trạng thái, người giao/nhận và các nút hành động cùng hàng */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-[900] border uppercase tracking-widest shadow-sm ${
+                  task.status === TaskStatus.DOING ? 'bg-indigo-600 text-white border-indigo-600' :
+                  task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white border-emerald-500' :
+                  task.status === TaskStatus.PENDING ? 'bg-[#5b61f1] text-white border-[#5b61f1]' :
+                  'bg-slate-400 text-white border-slate-400'
+                }`}>
+                  {task.status === TaskStatus.DOING ? 'Đang làm' : task.status === TaskStatus.DONE ? 'Hoàn thành' : task.status === TaskStatus.PENDING ? 'Mới' : 'Hủy'}
+                </span>
 
-                <div className="flex items-center gap-2 bg-[#f8fafc] rounded-xl px-3 py-1.5 border border-slate-50 min-w-0">
-                  <div className="flex items-center gap-1.5 text-[10px] font-[900] text-slate-500 min-w-0">
-                    <User size={12} strokeWidth={3} className="shrink-0 text-slate-300" />
-                    <span className="truncate max-w-[60px]">{creatorDisplay}</span>
+                <div className="flex items-center gap-2 bg-[#f8fafc] rounded-xl px-2.5 py-1 border border-slate-100">
+                  <div className="flex items-center gap-1 text-[9px] font-[900] text-slate-500">
+                    <span className="truncate max-w-[50px]">{creatorDisplay}</span>
                   </div>
                   <ArrowRight size={10} className="text-slate-300 shrink-0" strokeWidth={3} />
-                  <div className={`flex items-center gap-1.5 text-[10px] font-[900] min-w-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
-                    <User size={12} strokeWidth={3} className={`shrink-0 ${task.assigneeId === currentUser?.id ? 'text-indigo-500' : 'text-slate-300'}`} />
-                    <span className="truncate max-w-[60px]">{assigneeDisplay}</span>
+                  <div className={`flex items-center gap-1 text-[9px] font-[900] ${task.assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-500'}`}>
+                    <span className="truncate max-w-[50px]">{assigneeDisplay}</span>
                   </div>
                 </div>
 
                 {isOverdue && (
-                  <span className="flex items-center gap-1.5 bg-rose-500 text-white px-3 py-1 rounded-xl text-[10px] font-[900] shrink-0 animate-pulse shadow-lg shadow-rose-100">
-                    <AlertCircle size={12} strokeWidth={3} />
-                    <span>TRỄ HẠN</span>
+                  <span className="flex items-center gap-1 bg-rose-500 text-white px-2 py-1 rounded-lg text-[8px] font-[900] uppercase tracking-tighter shadow-lg shadow-rose-100">
+                    TRỄ HẠN
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2">
                 {canUpdateStatus ? (
-                  actions.map(action => {
-                    const handleAction = (e: React.MouseEvent) => {
-                      e.preventDefault(); e.stopPropagation();
-                      const nextStatus = action === 'DONE' ? TaskStatus.DONE : action === 'START' ? TaskStatus.DOING : action === 'CANCEL' ? TaskStatus.CANCELLED : TaskStatus.PENDING;
-                      onUpdateStatus(task.id, nextStatus);
-                    };
+                  <div className="flex items-center gap-1.5">
+                    {actions.map(action => {
+                      const handleAction = (e: React.MouseEvent) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const nextStatus = action === 'DONE' ? TaskStatus.DONE : action === 'START' ? TaskStatus.DOING : action === 'CANCEL' ? TaskStatus.CANCELLED : TaskStatus.PENDING;
+                        onUpdateStatus(task.id, nextStatus);
+                      };
 
-                    const isRedoAction = action === 'REDO';
-                    const btnBaseClass = "w-11 h-11 flex items-center justify-center rounded-2xl border transition-all active:scale-90 shadow-sm";
-                    
-                    const btnColorClass = isRedoAction 
-                      ? "bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-100" 
-                      : isDone ? "bg-white text-slate-200 border-slate-50 opacity-50" : "bg-white text-slate-400 border-slate-100 hover:shadow-md hover:border-indigo-100 hover:text-indigo-600";
+                      const isRedoAction = action === 'REDO';
+                      const btnBaseClass = "w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shadow-sm";
+                      const btnColorClass = isRedoAction 
+                        ? "bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-100" 
+                        : "bg-slate-50 text-slate-400 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600";
 
-                    if (action === 'DONE') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-emerald-500 hover:bg-emerald-50`} title="Hoàn thành"><Check size={22} strokeWidth={4} /></button>;
-                    if (action === 'START') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-indigo-600 hover:bg-indigo-50`} title="Bắt đầu"><Clock size={22} strokeWidth={4} /></button>;
-                    if (action === 'CANCEL') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-rose-500 hover:bg-rose-50`} title="Hủy bỏ"><X size={22} strokeWidth={4} /></button>;
-                    if (action === 'REDO') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-amber-600 hover:border-amber-300 bg-white scale-105 shadow-md`} title="Làm lại"><RotateCcw size={22} strokeWidth={4} /></button>;
-                    return null;
-                  })
+                      if (action === 'DONE') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-emerald-500`} title="Hoàn thành"><Check size={16} strokeWidth={4} /></button>;
+                      if (action === 'START') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass}`} title="Bắt đầu"><Clock size={16} strokeWidth={4} /></button>;
+                      if (action === 'CANCEL') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} hover:text-rose-500`} title="Hủy bỏ"><X size={16} strokeWidth={4} /></button>;
+                      if (action === 'REDO') return <button key={action} onPointerDown={stopProp} onClick={handleAction} className={`${btnBaseClass} ${btnColorClass} bg-white`} title="Làm lại"><RotateCcw size={16} strokeWidth={4} /></button>;
+                      return null;
+                    })}
+                  </div>
                 ) : (
-                  <span className="text-[10px] font-[900] text-slate-400 uppercase italic tracking-widest whitespace-nowrap bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 shadow-inner">Theo dõi</span>
+                  <span className="text-[8px] font-[900] text-slate-400 uppercase italic tracking-widest bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">Theo dõi</span>
                 )}
               </div>
             </div>
