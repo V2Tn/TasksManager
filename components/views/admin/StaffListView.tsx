@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
 import { User as UserIcon, RefreshCw, Plus, Trash2, CheckCircle, X, AlertCircle, Mail, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { StaffMember, UserRole, Department } from '../../../types';
 import { StaffDetailsModal } from './StaffDetailsModal';
 import { HARDCODED_DEPARTMENTS } from '../../../constants';
 import { syncStaffDataFromServer } from '../../../actions/authActions';
+import { API_CONFIG } from '../../../config/apiConfig';
 
 export const StaffListView: React.FC = () => {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>(() => {
@@ -48,6 +49,39 @@ export const StaffListView: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const getAdminWebhookUrl = () => {
+    const localUrl = localStorage.getItem('system_make_webhook_url');
+    return (localUrl && localUrl.trim() !== '') ? localUrl : API_CONFIG.MAKE_STAFF_URL;
+  };
+
+  const sendAdminWebhook = async (action: string, data: any) => {
+    const url = getAdminWebhookUrl();
+    if (!url || !url.startsWith('http')) return;
+    
+    try {
+      const currentUser = JSON.parse(localStorage.getItem('current_session_user') || '{}');
+      
+      // Chuyển đổi các trường thời gian trong data sang Unix Epoch nếu có
+      const dataForMake = { ...data };
+      if (dataForMake.createdAt) dataForMake.createdAt = Math.floor(new Date(dataForMake.createdAt).getTime() / 1000);
+      if (dataForMake.updatedAt) dataForMake.updatedAt = Math.floor(new Date(dataForMake.updatedAt).getTime() / 1000);
+
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          user: currentUser.username || 'admin',
+          data: dataForMake,
+          timestamp: Math.floor(Date.now() / 1000) // Chuyển sang Unix Epoch
+        }),
+        mode: 'cors'
+      });
+    } catch (e) {
+      console.error("Webhook Error:", e);
+    }
+  };
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
@@ -63,13 +97,26 @@ export const StaffListView: React.FC = () => {
 
   const handleSaveStaff = (memberData: StaffMember) => {
     setIsSubmitting(true);
+    const isUpdate = staffMembers.some(m => m.id === memberData.id);
+    
     setStaffMembers(prev => {
-      const exists = prev.some(m => m.id === memberData.id);
-      return exists ? prev.map(m => m.id === memberData.id ? memberData : m) : [memberData, ...prev];
+      return isUpdate ? prev.map(m => m.id === memberData.id ? memberData : m) : [memberData, ...prev];
     });
+
+    sendAdminWebhook(isUpdate ? 'UPDATE_STAFF' : 'CREATE_STAFF', memberData);
+
     showToast(`Đã lưu nhân sự ${memberData.fullName}`);
     setIsDetailsOpen(false);
     setIsSubmitting(false);
+  };
+
+  const handleDeleteStaff = (e: React.MouseEvent, member: StaffMember) => {
+    e.stopPropagation();
+    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân sự ${member.fullName}?`)) {
+      setStaffMembers(prev => prev.filter(m => m.id !== member.id));
+      sendAdminWebhook('DELETE_STAFF', member);
+      showToast(`Đã xóa nhân sự ${member.fullName}`);
+    }
   };
 
   return (
@@ -137,7 +184,7 @@ export const StaffListView: React.FC = () => {
                <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${member.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
                   {member.active ? 'ĐANG HOẠT ĐỘNG' : 'TẠM KHÓA'}
                </div>
-               <button onClick={(e) => { e.stopPropagation(); setStaffMembers(p => p.filter(m => m.id !== member.id)); }} className="p-2.5 text-slate-200 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
+               <button onClick={(e) => handleDeleteStaff(e, member)} className="p-2.5 text-slate-200 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
             </div>
           </div>
         ))}

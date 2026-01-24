@@ -143,8 +143,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               </div>
             </div>
 
-            {/* Khung thời gian: Không wrap (flex-nowrap) và cuộn ngang nếu cần */}
-            <div className={`flex flex-nowrap items-center gap-x-4 p-2 border-2 border-[#5b61f1] rounded-xl text-[9px] font-[800] uppercase tracking-wider overflow-x-auto scrollbar-hide ${isDone ? 'text-slate-300 border-slate-200' : 'text-slate-700'}`}>
+            {/* Khung thời gian: Đã bỏ viền tím theo yêu cầu */}
+            <div className={`flex flex-nowrap items-center gap-x-4 py-1 text-[9px] font-[800] uppercase tracking-wider overflow-x-auto scrollbar-hide ${isDone ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Clock size={11} className="text-slate-400" />
                 <span>TẠO: <span className="text-slate-900">{task.createdAtDisplay}</span></span>

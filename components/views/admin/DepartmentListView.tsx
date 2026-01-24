@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
 import { Briefcase, RefreshCw, Plus, Trash2, Users, CheckCircle, X, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { Department, StaffMember } from '../../../types';
 import { DepartmentDetailsModal } from './DepartmentDetailsModal';
 import { SYSTEM_DEFAULTS, HARDCODED_DEPARTMENTS } from '../../../constants';
+import { API_CONFIG } from '../../../config/apiConfig';
 import { addLog } from '../../../actions/logger';
 
 export const DepartmentListView: React.FC = () => {
@@ -23,7 +24,6 @@ export const DepartmentListView: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Lắng nghe sự thay đổi từ các tab khác để cập nhật số lượng nhân viên realtime
   useEffect(() => {
     const syncData = () => {
       const savedStaff = localStorage.getItem('app_staff_list_v1');
@@ -43,6 +43,43 @@ export const DepartmentListView: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const getAdminWebhookUrl = () => {
+    return localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
+  };
+
+  const sendAdminWebhook = async (action: string, data: any) => {
+    const url = getAdminWebhookUrl();
+    if (!url || !url.startsWith('http')) return;
+    
+    try {
+      const currentUser = JSON.parse(localStorage.getItem('current_session_user') || '{}');
+      
+      // Chuyển đổi các trường thời gian trong data sang Unix Epoch nếu có
+      const dataForMake = { ...data };
+      if (dataForMake.createdAt) dataForMake.createdAt = Math.floor(new Date(dataForMake.createdAt).getTime() / 1000);
+      if (dataForMake.updatedAt) dataForMake.updatedAt = Math.floor(new Date(dataForMake.updatedAt).getTime() / 1000);
+      
+      // Xử lý sâu hơn nếu data chứa object lồng nhau (VD: { department: ..., memberIds: ... })
+      if (dataForMake.department && dataForMake.department.createdAt) {
+          dataForMake.department.createdAt = Math.floor(new Date(dataForMake.department.createdAt).getTime() / 1000);
+      }
+
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          performedBy: currentUser.username || 'admin',
+          data: dataForMake,
+          timestamp: Math.floor(Date.now() / 1000) // Chuyển sang Unix Epoch
+        }),
+        mode: 'cors'
+      });
+    } catch (e) {
+      console.error("Webhook Error:", e);
+    }
+  };
+
   const robustParseJSON = (rawText: string) => {
     try {
       return JSON.parse(rawText);
@@ -56,7 +93,7 @@ export const DepartmentListView: React.FC = () => {
   };
 
   const handleSync = async () => {
-    const url = localStorage.getItem('system_make_webhook_url') || SYSTEM_DEFAULTS.MAKE_WEBHOOK_URL;
+    const url = getAdminWebhookUrl();
     if (!url || !url.startsWith('http')) return showToast("Chưa cấu hình URL", "error");
     
     setIsSyncing(true);
@@ -66,7 +103,10 @@ export const DepartmentListView: React.FC = () => {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'SYNC_DEPARTMENTS', timestamp: new Date().toISOString() }),
+        body: JSON.stringify({ 
+          action: 'SYNC_DEPARTMENTS', 
+          timestamp: Math.floor(Date.now() / 1000) // Chuyển sang Unix Epoch
+        }),
         mode: 'cors'
       });
       
@@ -92,32 +132,34 @@ export const DepartmentListView: React.FC = () => {
   };
 
   const handleSaveDept = (deptData: Department, membersToUpdate: number[]) => {
-    // 1. Cập nhật danh sách phòng ban
+    const isUpdate = departments.some(d => Number(d.id) === Number(deptData.id));
+
     setDepartments(prev => {
-      const exists = prev.some(d => Number(d.id) === Number(deptData.id));
-      return exists ? prev.map(d => Number(d.id) === Number(deptData.id) ? deptData : d) : [deptData, ...prev];
+      return isUpdate ? prev.map(d => Number(d.id) === Number(deptData.id) ? deptData : d) : [deptData, ...prev];
     });
 
-    // 2. LOGIC FIX: Cập nhật trực tiếp vào danh sách nhân sự gốc
     const currentFullStaff = JSON.parse(localStorage.getItem('app_staff_list_v1') || '[]');
     const updatedStaff = currentFullStaff.map((member: StaffMember) => {
       const isSelected = membersToUpdate.includes(Number(member.id));
       const isCurrentlyInThisDept = String(member.department) === String(deptData.id);
 
       if (isSelected) {
-        // Gán vào phòng ban này
         return { ...member, department: String(deptData.id) };
       } else if (isCurrentlyInThisDept) {
-        // Trước đó ở phòng này nhưng giờ không được chọn nữa -> Trở về trạng thái chưa phân phòng
         return { ...member, department: "" };
       }
       return member;
     });
 
-    // 3. Lưu và phát tín hiệu đồng bộ cho toàn bộ App
     localStorage.setItem('app_staff_list_v1', JSON.stringify(updatedStaff));
     setStaffMembers(updatedStaff);
     window.dispatchEvent(new Event('app_data_updated'));
+
+    // Gọi Webhook đồng bộ
+    sendAdminWebhook(isUpdate ? 'UPDATE_DEPT' : 'CREATE_DEPT', {
+      department: deptData,
+      memberIds: membersToUpdate
+    });
 
     showToast(`Đã cập nhật ${deptData.name}`);
     setIsDetailsOpen(false);
@@ -126,10 +168,8 @@ export const DepartmentListView: React.FC = () => {
   const handleDeleteDept = (id: number) => {
     const dept = departments.find(d => Number(d.id) === Number(id));
     if (dept && window.confirm(`Xóa phòng ban "${dept.name}"? Nhân sự trong phòng sẽ trở về trạng thái "Chưa phân phòng".`)) {
-      // Xóa phòng
       setDepartments(prev => prev.filter(d => Number(d.id) !== Number(id)));
       
-      // Giải phóng nhân sự khỏi phòng đã xóa
       const currentFullStaff = JSON.parse(localStorage.getItem('app_staff_list_v1') || '[]');
       const updatedStaff = currentFullStaff.map((m: StaffMember) => 
         String(m.department) === String(id) ? { ...m, department: "" } : m
@@ -138,6 +178,10 @@ export const DepartmentListView: React.FC = () => {
       localStorage.setItem('app_staff_list_v1', JSON.stringify(updatedStaff));
       setStaffMembers(updatedStaff);
       window.dispatchEvent(new Event('app_data_updated'));
+
+      // Gọi Webhook xóa
+      sendAdminWebhook('DELETE_DEPT', dept);
+
       showToast("Đã xóa phòng ban");
     }
   };
@@ -178,7 +222,6 @@ export const DepartmentListView: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {departments.map((dept) => {
-          // Tính toán số lượng nhân viên thực tế của phòng này
           const memberCount = staffMembers.filter(m => String(m.department) === String(dept.id)).length;
 
           return (
@@ -192,7 +235,6 @@ export const DepartmentListView: React.FC = () => {
               <p className="text-xs text-slate-500 font-bold leading-relaxed line-clamp-2 min-h-[40px] mb-6">{dept.description || 'Thông tin phòng ban...'}</p>
               
               <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                 {/* YÊU CẦU: Thay "PHÒNG BAN" bằng đếm số nhân viên */}
                  <div className="flex items-center gap-2.5 px-4 py-2 bg-indigo-50 rounded-full border border-indigo-100">
                     <Users size={14} className="text-indigo-500" strokeWidth={3} />
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{memberCount} NHÂN VIÊN</span>
