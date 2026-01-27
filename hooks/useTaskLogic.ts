@@ -7,11 +7,22 @@ import { safeJsonParse } from '../actions/authActions';
 
 const STORAGE_KEY = 'eisenhower_tasks_v2'; 
 
+const resolveServerDate = (dateVal: any): string => {
+  if (!dateVal) return new Date().toISOString();
+  const num = Number(dateVal);
+  if (!isNaN(num) && String(dateVal).length >= 10 && String(dateVal).length <= 13) {
+    const timestamp = num < 10000000000 ? num * 1000 : num;
+    return new Date(timestamp).toISOString();
+  }
+  return typeof dateVal === 'string' ? dateVal : new Date().toISOString();
+};
+
 /**
- * Hàm trích xuất Task đệ quy để xử lý cấu trúc lồng nhau từ Make
- * VD: item.data.task hoặc item.task
+ * Hàm trích xuất và lọc Task dựa trên yêu cầu:
+ * 1. Loại bỏ DONE và CANCELLED.
+ * 2. Chỉ lấy task mà user là người tạo hoặc người thực hiện.
  */
-const extractTasksFromResponse = (result: any): Task[] => {
+const extractTasksFromResponse = (result: any, currentUserId?: number): Task[] => {
   if (!result) return [];
   const foundTasks: Task[] = [];
   const seenIds = new Set<number>();
@@ -19,20 +30,43 @@ const extractTasksFromResponse = (result: any): Task[] => {
   const findTasksRecursive = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
 
-    // Kiểm tra nếu là một đối tượng Task (có title và status/quadrant)
-    const isTask = (obj.title && obj.status && obj.quadrant) || (obj.id && obj.title);
+    // Nhận diện Task object
+    const isTask = (obj.title && (obj.status || obj.quadrant)) || (obj.id && obj.title && (obj.assigneeId || obj.assigneeLabel));
     
     if (isTask) {
       const id = Number(obj.id);
       if (!isNaN(id) && !seenIds.has(id)) {
-        // Đảm bảo các trường dữ liệu được chuẩn hóa
-        foundTasks.push({
-          ...obj,
-          id,
-          // Nếu Make trả về 'IN_PROGRESS' thay vì 'DOING'
-          status: obj.status === 'IN_PROGRESS' ? TaskStatus.DOING : obj.status
-        } as Task);
-        seenIds.add(id);
+        const rawStatus = String(obj.status || '').toUpperCase();
+        
+        // 1. Lọc bỏ trạng thái Hoàn thành và Hủy
+        const isDoneOrCancel = rawStatus === 'DONE' || rawStatus === 'CANCELLED' || rawStatus === 'CANCEL';
+        
+        if (!isDoneOrCancel) {
+          // 2. Kiểm tra vai trò: là người được giao (assigneeId) hoặc người tạo (createdById)
+          const matchesUser = !currentUserId || 
+                             Number(obj.assigneeId) === currentUserId || 
+                             Number(obj.createdById) === currentUserId;
+
+          if (matchesUser) {
+            const dateSource = obj.createdAT || obj.createdAt;
+            const createdAt = resolveServerDate(dateSource);
+            const updatedAt = resolveServerDate(obj.updatedAt || dateSource);
+
+            let status = TaskStatus.PENDING;
+            if (rawStatus === 'IN_PROGRESS' || rawStatus === 'DOING') status = TaskStatus.DOING;
+            else if (rawStatus === 'PENDING') status = TaskStatus.PENDING;
+
+            foundTasks.push({
+              ...obj,
+              id,
+              createdAt,
+              updatedAt,
+              createdAtDisplay: formatSmartDate(createdAt),
+              status
+            } as Task);
+            seenIds.add(id);
+          }
+        }
       }
     }
 
@@ -46,6 +80,7 @@ const extractTasksFromResponse = (result: any): Task[] => {
   };
 
   findTasksRecursive(result);
+  // Sắp xếp ưu tiên: Mới -> Đang làm -> Tồn đọng (thực hiện qua UI sorting)
   return foundTasks.sort((a, b) => b.id - a.id);
 };
 
@@ -54,6 +89,21 @@ export const useTaskLogic = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
   });
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          setTasks(JSON.parse(saved));
+        } catch (e) {
+          console.error("Lỗi parse dữ liệu cập nhật:", e);
+        }
+      }
+    };
+    window.addEventListener('app_data_updated', handleRefresh);
+    return () => window.removeEventListener('app_data_updated', handleRefresh);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -80,16 +130,9 @@ export const useTaskLogic = () => {
 
   const updateTaskStatus = useCallback((id: number, newStatus: TaskStatus, userName: string) => {
     const timeDisplay = formatSmartDate();
-    const statusLabels: Record<string, string> = {
-      [TaskStatus.PENDING]: 'Mới',
-      [TaskStatus.DOING]: 'Đang làm',
-      [TaskStatus.DONE]: 'Hoàn thành',
-      [TaskStatus.CANCELLED]: 'Hủy bỏ'
-    };
-
     setTasks(prev => prev.map(task => {
       if (task.id === id) {
-        const newLogs = [...task.logs, `${timeDisplay} ${userName} đã cập nhật trạng thái ${statusLabels[newStatus]}`];
+        const newLogs = [...task.logs, `${timeDisplay} ${userName} đã cập nhật trạng thái ${newStatus}`];
         return { ...task, status: newStatus, updatedAt: new Date().toISOString(), logs: newLogs };
       }
       return task;
@@ -129,19 +172,20 @@ export const useTaskLogic = () => {
     return { done, doing, pending, cancelled, backlog, total: tasks.length };
   }, [tasks]);
 
-  const syncTasksFromServer = useCallback(async (url: string, user: string) => {
+  const syncTasksFromServer = useCallback(async (url: string, user: string, actionOverride?: string, currentUserId?: number) => {
     if (!url || !url.startsWith('http')) throw new Error("URL Webhook Task không hợp lệ");
     
-    addLog({ type: 'REMOTE', status: 'PENDING', action: 'SYNC_TASKS', message: 'Đang tải danh sách công việc...' });
+    const action = actionOverride || 'SYNC_TASKS';
+    addLog({ type: 'REMOTE', status: 'PENDING', action, message: 'Đang tải danh sách công việc...' });
     
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'SYNC_TASKS', 
+          action, 
           user, 
-          timestamp: Math.floor(Date.now() / 1000) // Chuyển sang Unix Epoch
+          timestamp: Math.floor(Date.now() / 1000) 
         }),
         mode: 'cors'
       });
@@ -150,16 +194,19 @@ export const useTaskLogic = () => {
       
       const rawText = await response.text();
       const result = safeJsonParse(rawText);
-      const remoteTasks = extractTasksFromResponse(result);
+      const remoteTasks = extractTasksFromResponse(result, currentUserId);
 
       if (remoteTasks.length > 0) {
         setTasks(remoteTasks);
-        addLog({ type: 'REMOTE', status: 'SUCCESS', action: 'SYNC_TASKS', message: `Đã đồng bộ ${remoteTasks.length} công việc.` });
+        addLog({ type: 'REMOTE', status: 'SUCCESS', action, message: `Đã đồng bộ ${remoteTasks.length} công việc.` });
         return remoteTasks;
       }
-      return [];
+      // Nếu không có task mới thỏa điều kiện, ta xóa task cũ hoặc giữ nguyên tùy logic app. 
+      // Ở đây ta ghi đè danh sách để phản ánh đúng filter "chỉ lấy task đang làm/mới/tồn đọng"
+      setTasks(remoteTasks);
+      return remoteTasks;
     } catch (e: any) {
-      addLog({ type: 'REMOTE', status: 'ERROR', action: 'SYNC_TASKS', message: e.message });
+      addLog({ type: 'REMOTE', status: 'ERROR', action, message: e.message });
       throw e;
     }
   }, []);

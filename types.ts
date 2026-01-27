@@ -1,3 +1,4 @@
+
 // Fix: Import React to provide access to React.Dispatch and React.SetStateAction types
 import React from 'react';
 
@@ -54,6 +55,14 @@ export interface Department {
   description: string;
   createdAt: string;
   managerId?: number;
+}
+
+export interface Evaluation {
+  userId: number;
+  excellent: boolean;
+  good: boolean;
+  bad: boolean;
+  period: string; // "7", "14", "30"
 }
 
 export interface Task {

@@ -143,19 +143,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onUpda
               </div>
             </div>
 
-            {/* Khung thời gian: Đã bỏ viền tím theo yêu cầu */}
-            <div className={`flex flex-nowrap items-center gap-x-4 py-1 text-[9px] font-[800] uppercase tracking-wider overflow-x-auto scrollbar-hide ${isDone ? 'text-slate-300' : 'text-slate-700'}`}>
-              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <Clock size={11} className="text-slate-400" />
-                <span>TẠO: <span className="text-slate-900">{task.createdAtDisplay}</span></span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <RefreshCw size={11} className="text-slate-400" />
-                <span>CẬP NHẬT: <span className="text-slate-900">{formatSmartDate(task.updatedAt)}</span></span>
-              </div>
+            {/* Khung thời gian: HẠN nằm trên TẠO, ẩn hoàn toàn CẬP NHẬT */}
+            <div className={`flex flex-col gap-y-1 py-1 text-[9px] font-[800] uppercase tracking-wider ${isDone ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Calendar size={11} className={isDone ? "text-slate-300" : "text-rose-500"} />
                 <span className={isDone ? "" : "text-rose-600 font-[900]"}>HẠN: {task.endTime}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <Clock size={11} className="text-slate-400" />
+                <span>TẠO: <span className="text-slate-900">{task.createdAtDisplay}</span></span>
               </div>
             </div>
 

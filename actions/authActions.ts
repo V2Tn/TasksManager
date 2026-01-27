@@ -4,43 +4,54 @@ import { API_CONFIG } from '../config/apiConfig';
 import { addLog } from './logger';
 
 /**
- * Hàm phân giải JSON cực kỳ an toàn, giải quyết lỗi 'Expected double-quoted property name'
- * bằng cách tự động bọc các đối tượng anh em vào mảng []
+ * Hàm phân giải JSON cực kỳ an toàn
+ * Xử lý trường hợp Make.com trả về chuỗi malformed: "data": {...}, {...} 
+ * thay vì "data": [{...}, {...}]
  */
 export const safeJsonParse = (text: string): any => {
+  if (!text) return null;
   let cleaned = text.trim();
   
-  // 1. Loại bỏ các ký tự rác ở đầu/cuối nếu có
-  cleaned = cleaned.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+  // 1. Dọn dẹp sơ bộ
+  cleaned = cleaned.replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '');
 
-  // 2. Xử lý lỗi trọng tâm: "data": {obj1}, {obj2} -> "data": [{obj1}, {obj2}]
-  // Tìm vị trí sau "data": và bọc toàn bộ nội dung sau đó (đến trước dấu đóng } cuối cùng) vào []
-  if (cleaned.includes('"data":') && cleaned.includes('}, {')) {
-    try {
-      const dataKey = '"data":';
-      const dataStartIdx = cleaned.indexOf(dataKey) + dataKey.length;
-      const lastBraceIdx = cleaned.lastIndexOf('}'); // Dấu đóng ngoặc của root object
+  // 2. Xử lý lỗi đặc thù của Make.com: "data": {obj1}, {obj2} -> thiếu []
+  // Chúng ta tìm vị trí của '"data":' và kiểm tra phần nội dung sau đó
+  const dataMarker = '"data"';
+  const dataPos = cleaned.indexOf(dataMarker);
+  
+  if (dataPos !== -1) {
+    const colonPos = cleaned.indexOf(':', dataPos);
+    if (colonPos !== -1) {
+      const prefix = cleaned.substring(0, colonPos + 1).trim();
+      let rest = cleaned.substring(colonPos + 1).trim();
       
-      if (dataStartIdx !== -1 && lastBraceIdx > dataStartIdx) {
-        const prefix = cleaned.substring(0, dataStartIdx).trim();
-        const content = cleaned.substring(dataStartIdx, lastBraceIdx).trim();
-        const suffix = cleaned.substring(lastBraceIdx);
-        
-        // Chỉ bọc nếu chưa có ngoặc mảng
-        if (!content.startsWith('[')) {
-          cleaned = `${prefix} [${content}] ${suffix}`;
+      // Nếu rest không bắt đầu bằng [ và có cấu trúc }, { (nhiều object)
+      if (!rest.startsWith('[') && rest.includes('}, {')) {
+        // Tìm vị trí đóng ngoặc cuối cùng của toàn bộ JSON (giả định là dấu } cuối cùng)
+        const lastBraceIdx = rest.lastIndexOf('}');
+        if (lastBraceIdx !== -1) {
+          const payload = rest.substring(0, lastBraceIdx).trim();
+          const suffix = rest.substring(lastBraceIdx);
+          // Gói payload vào trong []
+          cleaned = `${prefix} [${payload}] ${suffix}`;
         }
       }
-    } catch (e) {
-      console.error("Lỗi khi cố gắng sửa cấu trúc JSON:", e);
     }
   }
 
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("Không thể parse JSON mặc dù đã cố gắng sửa:", cleaned);
-    // Nếu vẫn lỗi, trả về null hoặc mảng rỗng tùy logic
+    console.error("Lỗi Parse JSON sau khi xử lý:", e);
+    // Fallback cuối cùng: Thử bao bọc toàn bộ chuỗi nếu nó trông giống mảng object
+    if (cleaned.includes('}, {') && !cleaned.startsWith('[') && !cleaned.includes('"status"')) {
+      try {
+        return JSON.parse(`[${cleaned}]`);
+      } catch (e2) {
+        return null;
+      }
+    }
     return null;
   }
 };
@@ -59,7 +70,14 @@ const extractStaffFromResponse = (result: any): StaffMember[] => {
     if (isMember) {
       const id = obj.id || obj.username;
       if (!seenIds.has(id)) {
-        foundMembers.push(obj as StaffMember);
+        const joinDate = typeof obj.joinDate === 'number' 
+          ? new Date(obj.joinDate * 1000).toISOString().split('T')[0] 
+          : obj.joinDate;
+
+        foundMembers.push({
+          ...obj,
+          joinDate
+        } as StaffMember);
         seenIds.add(id);
       }
     }
@@ -88,7 +106,7 @@ export const syncStaffDataFromServer = async (): Promise<StaffMember[]> => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         action: 'SYNC_STAFF', 
-        timestamp: Math.floor(Date.now() / 1000) // Chuyển sang Unix Epoch
+        timestamp: Math.floor(Date.now() / 1000) 
       }),
       mode: 'cors'
     });
