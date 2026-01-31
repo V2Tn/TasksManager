@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Task, TaskStatus, Quadrant, User, UserRole, StaffMember, Department } from './types';
 import { useTaskLogic } from './hooks/useTaskLogic';
 import { useTeamDashboard } from './hooks/useTeamDashboard';
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Quan trọng: Truyền user?.id vào hook để xử lý Isolation
   const { 
     tasks, 
     addTask, 
@@ -47,12 +48,19 @@ const App: React.FC = () => {
     deleteTask, 
     progress,
     syncTasksFromServer
-  } = useTaskLogic();
+  } = useTaskLogic(user?.id);
 
   const { masterTasks, fetchMasterTasks, isFetching: isFetchingTeam } = useTeamDashboard();
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Lọc task để hiển thị ở tab Công việc và Báo cáo cá nhân
+  const personalTasks = useMemo(() => {
+    if (!user) return [];
+    // Chỉ lấy những task mà User hiện tại là người thực hiện (assignee)
+    return tasks.filter(t => Number(t.assigneeId) === user.id);
+  }, [tasks, user?.id]);
 
   useEffect(() => {
     const loadData = () => {
@@ -63,7 +71,6 @@ const App: React.FC = () => {
       if (savedDepts) {
         setDepartments(JSON.parse(savedDepts));
       } else {
-        // Luôn nạp dữ liệu cứng nếu chưa có cấu hình local để đảm bảo hiển thị đủ phòng ban
         setDepartments(HARDCODED_DEPARTMENTS.map(d => ({ ...d, createdAt: new Date().toISOString() })));
       }
     };
@@ -107,22 +114,21 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleFetchTasksById = useCallback(async () => {
-    if (!user) return;
+  const handleFetchTasksById = useCallback(async (targetUser: User) => {
     const url = getTaskWebhookUrl();
     if (!url || !url.startsWith('http')) return;
     
     try {
-      // Truyền thêm user.id để lọc chỉ lấy task user tham gia (tạo hoặc giao) và chưa hoàn thành/hủy
-      await syncTasksFromServer(url, user.username, 'get_list_id_task', user.id);
+      // Sử dụng targetUser thay vì user cũ để tránh race condition
+      await syncTasksFromServer(url, targetUser.username, 'get_list_id_task', targetUser.id);
     } catch (e: any) {
       console.error("Lỗi khi lấy danh sách công việc tự động:", e.message);
     }
-  }, [user, syncTasksFromServer]);
+  }, [syncTasksFromServer]);
 
   const handleTabChange = (newTab: typeof activeTab) => {
-    if (newTab === 'tasks' && activeTab !== 'tasks') {
-      handleFetchTasksById();
+    if (newTab === 'tasks' && activeTab !== 'tasks' && user) {
+      handleFetchTasksById(user);
     }
     
     if (newTab === 'team' && user) {
@@ -143,12 +149,11 @@ const App: React.FC = () => {
     
     setIsSyncingTasks(true);
     try {
-      // Truyền user.id để lọc phía client sau khi sync
       const synced = await syncTasksFromServer(url, user.username, 'get_list_id_task', user.id);
       if (synced && synced.length > 0) {
-        showToast(`Đã đồng bộ ${synced.length} công việc đang thực hiện.`);
+        showToast(`Đã đồng bộ ${synced.length} công việc.`);
       } else {
-        showToast("Không có công việc mới hoặc các công việc đã hoàn thành/hủy.");
+        showToast("Không có công việc mới (Đã lọc bỏ Hoàn thành/Hủy).");
       }
     } catch (e: any) {
       showToast("Lỗi đồng bộ: " + e.message, "error");
@@ -237,7 +242,7 @@ const App: React.FC = () => {
           onSwitchUser={(u) => {
             setUser(u);
             localStorage.setItem('current_session_user', JSON.stringify(u));
-            handleFetchTasksById();
+            handleFetchTasksById(u);
           }}
         />
 
@@ -261,7 +266,7 @@ const App: React.FC = () => {
             <div className="w-full lg:w-2/3">
               {viewMode === 'matrix' ? (
                 <EisenhowerMatrix 
-                  tasks={tasks} 
+                  tasks={personalTasks} 
                   onUpdateStatus={handleUpdateStatus}
                   onUpdateTitle={handleUpdateTitle}
                   onUpdateQuadrant={handleUpdateQuadrant}
@@ -270,7 +275,7 @@ const App: React.FC = () => {
                 />
               ) : (
                 <TaskListView 
-                  tasks={tasks}
+                  tasks={personalTasks} 
                   onUpdateStatus={handleUpdateStatus}
                   onUpdateTitle={handleUpdateTitle}
                   onDeleteTask={handleDeleteTask}
@@ -283,7 +288,7 @@ const App: React.FC = () => {
 
         {activeTab === 'reports' && (
           <ReportView 
-            tasks={tasks} 
+            tasks={personalTasks} 
             onUpdateStatus={handleUpdateStatus}
             onUpdateTitle={handleUpdateTitle}
             currentUser={user}

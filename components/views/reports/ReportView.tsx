@@ -124,7 +124,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
   }, [chartData]);
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-[1200px] mx-auto pb-12 px-1">
+    <div className="flex flex-col gap-6 w-full max-w-[1200px] mx-auto pb-12 px-1 font-['Lexend']">
       {/* Period Selectors */}
       <div className="flex bg-white p-1 rounded-xl border border-gray-100 shadow-sm w-fit self-start mb-2">
         {['Hôm nay', 'Tuần', 'Tháng', 'Năm'].map(p => (
@@ -143,87 +143,99 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         ))}
       </div>
 
-      <div className="relative bg-gradient-to-br from-[#7c3aed] to-[#6366f1] rounded-[24px] p-6 md:p-10 text-white overflow-hidden shadow-2xl shadow-indigo-100 min-h-[180px] flex flex-col justify-center">
+      <div className="relative bg-gradient-to-br from-[#1e1b4b] to-[#4338ca] rounded-[32px] p-8 md:p-12 text-white overflow-hidden shadow-2xl shadow-indigo-100 flex flex-col justify-center">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
-            <Trophy size={20} className="text-white opacity-90" />
-            <span className="text-[13px] md:text-[15px] font-bold opacity-90 tracking-wide">Hoàn thành tổng cộng</span>
+            <Trophy size={20} className="text-indigo-300" />
+            <span className="text-[12px] md:text-[14px] font-black opacity-70 tracking-[0.2em] uppercase">HIỆU SUẤT CÁ NHÂN</span>
           </div>
-          <div className="flex items-baseline gap-2 md:gap-3">
-            <span className="text-5xl md:text-7xl font-black tracking-tight leading-none">{completedCount}</span>
-            <span className="text-lg md:text-xl font-bold opacity-80 mb-1">công việc</span>
+          <div className="flex items-baseline gap-2 md:gap-4">
+            <span className="text-6xl md:text-8xl font-[900] tracking-tighter leading-none">{completedCount}</span>
+            <span className="text-xl md:text-2xl font-black opacity-50 uppercase tracking-widest">Công việc hoàn thành</span>
           </div>
         </div>
-        <div className="absolute right-[-20px] top-[-20px] bottom-[-20px] aspect-square flex items-center justify-center pointer-events-none">
-            <CheckCircle2 size={100} className="text-white opacity-[0.07]" />
+        <div className="absolute right-[-40px] top-[-40px] pointer-events-none">
+            <CheckCircle2 size={240} className="text-white opacity-[0.03]" />
         </div>
       </div>
 
-      <div className="bg-white rounded-[24px] p-4 md:p-10 border border-gray-50 shadow-xl shadow-gray-100/50 overflow-visible relative">
-        <div className="flex items-center justify-between mb-8">
-           <h3 className="text-[14px] md:text-[15px] font-black text-gray-800 uppercase tracking-tight">Biểu đồ tiến độ ({activePeriod})</h3>
-           <div className="flex items-center gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-indigo-600 rounded-full"></span> Xong</div>
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-slate-100 rounded-full border border-gray-200"></span> Tổng</div>
+      <div className="bg-white rounded-[40px] p-6 md:p-10 border border-slate-50 shadow-sm overflow-hidden relative">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+           <div>
+              <h3 className="text-xl font-[900] text-slate-900 uppercase tracking-tight">Biểu đồ tiến độ</h3>
+              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-1">Dữ liệu theo {activePeriod}</p>
+           </div>
+           <div className="flex items-center gap-6 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-5 py-2.5 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 bg-indigo-600 rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]"></span> Hoàn thành</div>
+              <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 bg-slate-200 rounded-full"></span> Tổng số</div>
            </div>
         </div>
         
-        <div className="relative pt-32 pb-8 px-2 overflow-visible">
-          <div className="h-64 md:h-80 flex items-end justify-between gap-1 md:gap-3 relative min-w-full overflow-visible">
+        {/* Container cuộn ngang thông minh */}
+        <div className="relative pt-24 pb-4 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing">
+          <div 
+            className="h-64 md:h-80 flex items-end justify-between gap-2 md:gap-4 relative" 
+            style={{ minWidth: activePeriod === 'Hôm nay' ? '1200px' : activePeriod === 'Tháng' ? '800px' : '100%' }}
+          >
             {chartData.map((data, idx) => {
               const totalH = (data.total / maxVal) * 100;
               const doneH = (data.done / maxVal) * 100;
               const isHovered = hoveredIdx === idx;
               
-              const isLast = idx >= chartData.length - 2;
-              const isFirst = idx <= 1;
+              // Tính toán vị trí Tooltip để không bị tràn
+              const isLast = idx >= chartData.length - 3;
+              const isFirst = idx <= 2;
               const tooltipPosClass = isLast ? 'right-0' : isFirst ? 'left-0' : 'left-1/2 -translate-x-1/2';
               const arrowPosClass = isLast ? 'right-4' : isFirst ? 'left-4' : 'left-1/2 -translate-x-1/2';
 
               return (
                 <div 
                   key={idx} 
-                  className="flex-1 flex flex-col items-center justify-end h-full gap-3 relative group overflow-visible"
+                  className="flex-1 flex flex-col items-center justify-end h-full group relative"
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                 >
                   {isHovered && (
-                    <div className={`absolute bottom-[calc(100%+24px)] ${tooltipPosClass} bg-[#1e293b] text-white p-4 rounded-2xl shadow-[0_25px_50px_rgba(0,0,0,0.4)] z-[999] min-w-[160px] animate-in fade-in zoom-in duration-200 border border-white/10`}>
-                      <div className="text-[10px] font-black text-indigo-400 uppercase mb-3 border-b border-white/5 pb-2 whitespace-nowrap tracking-wider">
+                    <div className={`absolute bottom-[calc(100%+24px)] ${tooltipPosClass} bg-slate-900 text-white p-5 rounded-3xl shadow-2xl z-50 min-w-[180px] animate-in fade-in zoom-in-95 duration-200 border border-white/10 backdrop-blur-md`}>
+                      <div className="text-[10px] font-black text-indigo-400 uppercase mb-3 border-b border-white/5 pb-2 tracking-widest">
                         {data.fullLabel}
                       </div>
-                      <div className="flex flex-col gap-2.5">
-                        <div className="flex justify-between items-center gap-6">
-                           <span className="text-[11px] font-bold opacity-60">Tổng cộng:</span>
-                           <span className="text-[14px] font-black">{data.total}</span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-black opacity-40 uppercase">Tổng cộng</span>
+                           <span className="text-[14px] font-[900]">{data.total}</span>
                         </div>
-                        <div className="flex justify-between items-center gap-6">
-                           <span className="text-[11px] font-bold text-green-400">Đã xong:</span>
-                           <span className="text-[14px] font-black text-green-400">{data.done}</span>
+                        <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-black text-indigo-400 uppercase">Hoàn thành</span>
+                           <span className="text-[14px] font-[900] text-indigo-400">{data.done}</span>
                         </div>
                         {data.total > 0 && (
-                           <div className="mt-1 pt-2 border-t border-white/5 flex justify-between items-center">
-                              <span className="text-[9px] font-bold opacity-40 uppercase">Tỷ lệ:</span>
-                              <span className="text-[12px] font-black text-indigo-300">{Math.round((data.done/data.total)*100)}%</span>
+                           <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
+                              <span className="text-[9px] font-black opacity-30 uppercase">Hiệu suất</span>
+                              <span className="text-[12px] font-[900] text-emerald-400">{Math.round((data.done/data.total)*100)}%</span>
                            </div>
                         )}
                       </div>
-                      <div className={`absolute -bottom-1.5 ${arrowPosClass} w-3 h-3 bg-[#1e293b] rotate-45 border-r border-b border-white/10`}></div>
+                      <div className={`absolute -bottom-1.5 ${arrowPosClass} w-3 h-3 bg-slate-900 rotate-45 border-r border-b border-white/10`}></div>
                     </div>
                   )}
 
-                  <div className={`w-full flex items-end justify-center gap-0.5 md:gap-1.5 h-full transition-all duration-300 ${isHovered ? 'opacity-100 scale-x-110' : 'opacity-70'}`}>
+                  <div className={`w-full flex items-end justify-center gap-1 h-full transition-all duration-500 ${isHovered ? 'scale-x-105' : 'opacity-80'}`}>
                     <div 
-                      className={`w-3 md:w-8 bg-indigo-600 rounded-t-lg transition-all duration-500 relative ${isHovered ? 'shadow-[0_0_20px_rgba(79,70,229,0.5)] brightness-125' : ''}`} 
-                      style={{height: `${Math.max(doneH, 2)}%`}}
-                    />
+                      className={`w-4 md:w-8 bg-indigo-600 rounded-t-xl transition-all duration-700 relative z-10 ${isHovered ? 'brightness-125 shadow-lg shadow-indigo-500/40' : ''}`} 
+                      style={{height: `${Math.max(doneH, 4)}%`}}
+                    >
+                      {isHovered && data.done > 0 && (
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-indigo-600">{data.done}</div>
+                      )}
+                    </div>
                     <div 
-                      className={`w-3 md:w-8 bg-slate-100 border-x border-t border-gray-100 rounded-t-lg transition-all duration-500 ${isHovered ? 'bg-slate-200 border-slate-200' : ''}`} 
-                      style={{height: `${Math.max(totalH, 2)}%`}}
+                      className={`w-4 md:w-8 bg-slate-100 rounded-t-xl transition-all duration-700 ${isHovered ? 'bg-slate-200' : ''}`} 
+                      style={{height: `${Math.max(totalH, 4)}%`}}
                     />
                   </div>
                   
-                  <span className={`text-[10px] md:text-[12px] font-black transition-all duration-300 mt-1 ${isHovered ? 'text-indigo-600 scale-110' : 'text-gray-400'} ${data.label === '' ? 'opacity-0' : 'opacity-100'}`}>
+                  <span className={`text-[9px] md:text-[11px] font-black transition-all duration-300 mt-4 tracking-tighter ${isHovered ? 'text-indigo-600' : 'text-slate-400'} ${data.label === '' ? 'opacity-0' : 'opacity-100'}`}>
                     {data.label}
                   </span>
                 </div>
@@ -233,35 +245,42 @@ export const ReportView: React.FC<ReportViewProps> = ({ tasks, onUpdateStatus, o
         </div>
       </div>
 
-      <div className="bg-white rounded-[24px] border border-gray-50 shadow-xl shadow-gray-100/50 overflow-hidden">
-        <div className="px-6 md:px-10 py-5 flex items-center gap-3 border-b border-gray-50 bg-gray-50/20">
-          <ListChecks size={20} className="text-indigo-600" />
-          <h3 className="text-[14px] md:text-[16px] font-black text-gray-800">Lịch sử công việc</h3>
+      <div className="bg-white rounded-[40px] border border-slate-50 shadow-sm overflow-hidden">
+        <div className="px-8 md:px-10 py-6 flex items-center justify-between border-b border-slate-50 bg-slate-50/20">
+          <div className="flex items-center gap-3">
+             <ListChecks size={22} className="text-indigo-600" />
+             <h3 className="text-lg font-[900] text-slate-900 uppercase tracking-tight">Nhật ký công việc</h3>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupedTasks.length} Ngày ghi nhận</p>
         </div>
 
-        <div className="divide-y divide-gray-50">
+        <div className="divide-y divide-slate-50">
           {groupedTasks.length === 0 ? (
-             <div className="p-20 text-center opacity-30 flex flex-col items-center">
-                <ListChecks size={48} className="mb-4" />
-                <span className="font-black text-xs uppercase tracking-widest">Chưa có dữ liệu công việc</span>
+             <div className="py-24 text-center opacity-20 flex flex-col items-center">
+                <ListChecks size={64} strokeWidth={1} className="mb-4" />
+                <span className="font-black text-sm uppercase tracking-[0.2em]">Hệ thống chưa ghi nhận dữ liệu</span>
              </div>
           ) : groupedTasks.map((group) => (
             <div key={group.rawDate} className="flex flex-col">
               <button 
                 onClick={() => setExpandedDate(expandedDate === group.rawDate ? null : group.rawDate)}
-                className={`w-full px-6 md:px-10 py-5 flex items-center justify-between hover:bg-indigo-50/10 transition-all ${expandedDate === group.rawDate ? 'bg-indigo-50/5' : ''}`}
+                className={`w-full px-8 md:px-10 py-6 flex items-center justify-between hover:bg-slate-50 transition-all ${expandedDate === group.rawDate ? 'bg-slate-50/50' : ''}`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`transition-transform duration-300 ${expandedDate === group.rawDate ? 'rotate-90 text-indigo-600' : 'text-gray-300'}`}>
-                    <ChevronRight size={18} />
+                <div className="flex items-center gap-5">
+                  <div className={`p-2 bg-white rounded-xl shadow-sm border border-slate-100 transition-all duration-500 ${expandedDate === group.rawDate ? 'rotate-90 text-indigo-600 scale-110' : 'text-slate-300'}`}>
+                    <ChevronRight size={18} strokeWidth={3} />
                   </div>
-                  <span className="text-[14px] font-black text-gray-800">{group.dateLabel}</span>
+                  <span className="text-base font-black text-slate-800 uppercase tracking-tight">{group.dateLabel}</span>
                 </div>
-                <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-black text-gray-500 border border-white shadow-sm">{group.count} task</span>
+                <div className="flex items-center gap-3">
+                   <div className="px-4 py-1.5 bg-white border border-slate-100 rounded-full text-[10px] font-black text-slate-500 tracking-widest shadow-sm">
+                      {group.tasks.filter(t => t.status === TaskStatus.DONE).length}/{group.count} XONG
+                   </div>
+                </div>
               </button>
 
               {expandedDate === group.rawDate && (
-                <div className="px-6 md:px-10 pb-8 flex flex-col gap-4 pt-2 animate-in slide-in-from-top-2 duration-300">
+                <div className="px-8 md:px-10 pb-10 flex flex-col gap-5 pt-4 animate-in fade-in slide-in-from-top-4 duration-500">
                   {group.tasks.map((task) => (
                     <TaskCard 
                       key={task.id} 

@@ -5,7 +5,8 @@ import { formatSmartDate, isTimePassed } from '../actions/taskTimeUtils';
 import { addLog } from '../actions/logger';
 import { safeJsonParse } from '../actions/authActions';
 
-const STORAGE_KEY = 'eisenhower_tasks_v2'; 
+// Hàm tạo key lưu trữ riêng biệt cho từng user
+const getStorageKey = (userId?: number) => userId ? `eisenhower_tasks_u${userId}` : 'eisenhower_tasks_guest';
 
 const resolveServerDate = (dateVal: any): string => {
   if (!dateVal) return new Date().toISOString();
@@ -80,19 +81,33 @@ const extractTasksFromResponse = (result: any, currentUserId?: number): Task[] =
   };
 
   findTasksRecursive(result);
-  // Sắp xếp ưu tiên: Mới -> Đang làm -> Tồn đọng (thực hiện qua UI sorting)
   return foundTasks.sort((a, b) => b.id - a.id);
 };
 
-export const useTaskLogic = () => {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  });
+export const useTaskLogic = (currentUserId?: number) => {
+  const storageKey = useMemo(() => getStorageKey(currentUserId), [currentUserId]);
 
+  // Khởi tạo state rỗng, việc nạp dữ liệu sẽ do useEffect xử lý để tránh stale data từ user cũ
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  // Effect nạp dữ liệu khi chuyển User
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        setTasks(JSON.parse(saved));
+      } catch (e) {
+        setTasks([]);
+      }
+    } else {
+      setTasks([]);
+    }
+  }, [storageKey]);
+
+  // Effect hỗ trợ lắng nghe sự kiện cập nhật từ tab khác
   useEffect(() => {
     const handleRefresh = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
           setTasks(JSON.parse(saved));
@@ -103,11 +118,14 @@ export const useTaskLogic = () => {
     };
     window.addEventListener('app_data_updated', handleRefresh);
     return () => window.removeEventListener('app_data_updated', handleRefresh);
-  }, []);
+  }, [storageKey]);
 
+  // Effect lưu dữ liệu vào đúng ngăn chứa của User đó
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    if (tasks.length > 0 || localStorage.getItem(storageKey)) {
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }
+  }, [tasks, storageKey]);
 
   const addTask = useCallback((taskData: any): Task => {
     const maxId = tasks.reduce((max, task) => (task.id > max ? task.id : max), 0);
@@ -164,15 +182,20 @@ export const useTaskLogic = () => {
   }, [tasks]);
 
   const progress = useMemo(() => {
-    const done = tasks.filter(t => t.status === TaskStatus.DONE).length;
-    const doing = tasks.filter(t => t.status === TaskStatus.DOING).length;
-    const pending = tasks.filter(t => t.status === TaskStatus.PENDING).length;
-    const cancelled = tasks.filter(t => t.status === TaskStatus.CANCELLED).length;
-    const backlog = tasks.filter(t => t.status !== TaskStatus.DONE && isTimePassed(t.endTime)).length;
-    return { done, doing, pending, cancelled, backlog, total: tasks.length };
-  }, [tasks]);
+    // CHỈ TÍNH TOÁN DỰA TRÊN TASK MÀ USER LÀ NGƯỜI THỰC HIỆN (ASSIGNEE)
+    const personalTasks = currentUserId 
+      ? tasks.filter(t => Number(t.assigneeId) === currentUserId)
+      : tasks;
 
-  const syncTasksFromServer = useCallback(async (url: string, user: string, actionOverride?: string, currentUserId?: number) => {
+    const done = personalTasks.filter(t => t.status === TaskStatus.DONE).length;
+    const doing = personalTasks.filter(t => t.status === TaskStatus.DOING).length;
+    const pending = personalTasks.filter(t => t.status === TaskStatus.PENDING).length;
+    const cancelled = personalTasks.filter(t => t.status === TaskStatus.CANCELLED).length;
+    const backlog = personalTasks.filter(t => t.status !== TaskStatus.DONE && isTimePassed(t.endTime)).length;
+    return { done, doing, pending, cancelled, backlog, total: personalTasks.length };
+  }, [tasks, currentUserId]);
+
+  const syncTasksFromServer = useCallback(async (url: string, user: string, actionOverride?: string, userIdForFilter?: number) => {
     if (!url || !url.startsWith('http')) throw new Error("URL Webhook Task không hợp lệ");
     
     const action = actionOverride || 'SYNC_TASKS';
@@ -194,16 +217,12 @@ export const useTaskLogic = () => {
       
       const rawText = await response.text();
       const result = safeJsonParse(rawText);
-      const remoteTasks = extractTasksFromResponse(result, currentUserId);
+      
+      // Sử dụng ID truyền vào để lọc chính xác dữ liệu từ server trả về
+      const remoteTasks = extractTasksFromResponse(result, userIdForFilter);
 
-      if (remoteTasks.length > 0) {
-        setTasks(remoteTasks);
-        addLog({ type: 'REMOTE', status: 'SUCCESS', action, message: `Đã đồng bộ ${remoteTasks.length} công việc.` });
-        return remoteTasks;
-      }
-      // Nếu không có task mới thỏa điều kiện, ta xóa task cũ hoặc giữ nguyên tùy logic app. 
-      // Ở đây ta ghi đè danh sách để phản ánh đúng filter "chỉ lấy task đang làm/mới/tồn đọng"
       setTasks(remoteTasks);
+      addLog({ type: 'REMOTE', status: 'SUCCESS', action, message: `Đã đồng bộ ${remoteTasks.length} công việc.` });
       return remoteTasks;
     } catch (e: any) {
       addLog({ type: 'REMOTE', status: 'ERROR', action, message: e.message });

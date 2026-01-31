@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Plus, Users, CheckSquare, Square } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Users, CheckSquare, Square, Search, ChevronDown, Check, User as UserIcon } from 'lucide-react';
 import { Quadrant, TaskStatus, User, UserRole, StaffMember } from '../../../types';
 import { QUADRANT_CONFIG } from '../../../constants';
 import { getCurrentTimeFormatted, getEndOfDayTimeFormatted } from '../../../actions/taskTimeUtils';
@@ -18,6 +18,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
   
   const [isAssigning, setIsAssigning] = useState(false);
   const [assigneeId, setAssigneeId] = useState<number>(currentUser?.id || 0);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const canAssign = useMemo(() => {
     return currentUser?.role === UserRole.ADMIN || 
@@ -43,6 +46,28 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
       return false;
     });
   }, [currentUser]);
+
+  const filteredStaff = useMemo(() => {
+    return staffList.filter(s => 
+      s.fullName.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+      s.username.toLowerCase().includes(memberSearchTerm.toLowerCase())
+    );
+  }, [staffList, memberSearchTerm]);
+
+  const selectedMember = useMemo(() => {
+    if (assigneeId === currentUser?.id) return { fullName: currentUser.fullName, role: currentUser.role };
+    return staffList.find(s => s.id === assigneeId);
+  }, [assigneeId, staffList, currentUser]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowMemberDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +99,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
     setTitle('');
     setIsAssigning(false);
     setAssigneeId(currentUser?.id || 0);
+    setShowMemberDropdown(false);
   };
 
   return (
@@ -101,7 +127,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
           />
         </div>
 
-        {/* Tăng khoảng cách margin-top cho phần phân loại */}
         <div className="grid grid-cols-2 gap-3 pt-2">
           {(Object.values(Quadrant) as Quadrant[]).map((q) => {
             const config = QUADRANT_CONFIG[q];
@@ -151,10 +176,14 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
           <div className="pt-2">
             <button
               type="button"
-              onClick={() => setIsAssigning(!isAssigning)}
+              onClick={() => {
+                setIsAssigning(!isAssigning);
+                if (!isAssigning) setAssigneeId(staffList[0]?.id || currentUser?.id || 0);
+                else setAssigneeId(currentUser?.id || 0);
+              }}
               className="flex items-center gap-3 cursor-pointer group hover:bg-slate-50 p-2 -ml-2 rounded-xl transition-colors"
             >
-              <div className={`transition-colors ${isAssigning ? (quadrant === Quadrant.Q1 ? 'text-rose-600' : 'text-indigo-600') : 'text-slate-300'}`}>
+              <div className={`transition-colors ${isAssigning ? 'text-indigo-600' : 'text-slate-300'}`}>
                 {isAssigning ? <CheckSquare size={18} strokeWidth={3} /> : <Square size={18} strokeWidth={2} />}
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${isAssigning ? 'text-slate-900' : 'text-slate-400'}`}>
@@ -163,20 +192,96 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, currentUser }) => {
             </button>
 
             {isAssigning && (
-              <div className="mt-3 animate-in slide-in-from-top-2 duration-300">
-                <div className="relative group">
-                  <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 transition-colors ${quadrant === Quadrant.Q1 ? 'group-focus-within:text-rose-500' : 'group-focus-within:text-indigo-500'}`}>
-                    <Users size={14} />
+              <div className="mt-3 animate-in slide-in-from-top-2 duration-300 relative" ref={dropdownRef}>
+                <div 
+                  onClick={() => setShowMemberDropdown(!showMemberDropdown)}
+                  className="w-full flex items-center justify-between pl-4 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white hover:border-indigo-200 transition-all group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-[10px] border border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      {selectedMember?.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none mb-1">
+                        {selectedMember?.fullName}
+                      </p>
+                      <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">
+                        {assigneeId === currentUser?.id ? 'Bản thân' : (selectedMember as any)?.role || 'Nhân viên'}
+                      </p>
+                    </div>
                   </div>
-                  <select
-                    value={assigneeId}
-                    onChange={(e) => setAssigneeId(Number(e.target.value))}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-4 focus:ring-indigo-50 transition-all font-black text-slate-800 text-[10px] appearance-none cursor-pointer"
-                  >
-                    <option value={currentUser?.id}>{currentUser?.fullName} (TÔI)</option>
-                    {staffList.map(m => <option key={m.id} value={m.id}>{m.fullName.toUpperCase()} ({m.role.replace('_', ' ')})</option>)}
-                  </select>
+                  <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${showMemberDropdown ? 'rotate-180 text-indigo-500' : ''}`} />
                 </div>
+
+                {showMemberDropdown && (
+                  <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-100 rounded-[24px] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top">
+                    <div className="p-3 border-b border-slate-50 flex items-center gap-3 bg-slate-50/50">
+                      <Search size={14} className="text-slate-400" />
+                      <input 
+                        autoFocus
+                        type="text"
+                        placeholder="TÌM KIẾM NHÂN VIÊN..."
+                        value={memberSearchTerm}
+                        onChange={(e) => setMemberSearchTerm(e.target.value)}
+                        className="w-full bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-wider text-slate-800 placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div className="max-h-[220px] overflow-y-auto scrollbar-hide py-2 px-2 space-y-1">
+                      {/* Bản thân luôn ở đầu */}
+                      <div 
+                        onClick={() => {
+                          setAssigneeId(currentUser?.id || 0);
+                          setShowMemberDropdown(false);
+                        }}
+                        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${assigneeId === currentUser?.id ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      >
+                         <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${assigneeId === currentUser?.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-slate-100 text-slate-400'}`}>
+                                {currentUser?.fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                               <p className={`text-[10px] font-black uppercase tracking-tight ${assigneeId === currentUser?.id ? 'text-indigo-600' : 'text-slate-700'}`}>
+                                  {currentUser?.fullName} (TÔI)
+                               </p>
+                            </div>
+                         </div>
+                         {assigneeId === currentUser?.id && <Check size={14} className="text-indigo-600" strokeWidth={3} />}
+                      </div>
+
+                      {/* Danh sách lọc */}
+                      {filteredStaff.map(member => (
+                        <div 
+                          key={member.id}
+                          onClick={() => {
+                            setAssigneeId(member.id);
+                            setShowMemberDropdown(false);
+                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${assigneeId === member.id ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                        >
+                           <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] transition-all ${assigneeId === member.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-slate-100 text-slate-400'}`}>
+                                  {member.fullName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                 <p className={`text-[10px] font-black uppercase tracking-tight ${assigneeId === member.id ? 'text-indigo-600' : 'text-slate-700'}`}>
+                                    {member.fullName}
+                                 </p>
+                                 <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{member.role} • {member.department || 'Phòng ban'}</p>
+                              </div>
+                           </div>
+                           {assigneeId === member.id && <Check size={14} className="text-indigo-600" strokeWidth={3} />}
+                        </div>
+                      ))}
+                      
+                      {filteredStaff.length === 0 && memberSearchTerm && (
+                        <div className="py-8 text-center opacity-30">
+                           <UserIcon size={24} className="mx-auto mb-2 text-slate-300" />
+                           <p className="text-[9px] font-black uppercase tracking-widest">Không tìm thấy nhân sự</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

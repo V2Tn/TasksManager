@@ -1,6 +1,6 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { Users, Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, ChevronLeft, User as UserIcon, ArrowRight, XCircle, ListTodo, Medal, Calendar, ThumbsUp, ThumbsDown, Star, LayoutList } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Users, Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, ChevronLeft, User as UserIcon, ArrowRight, XCircle, ListTodo, Medal, Calendar, ThumbsUp, ThumbsDown, Star, LayoutList, ChevronDown, Check } from 'lucide-react';
 import { Task, TaskStatus, StaffMember, Department, User, UserRole, Evaluation } from '../../../types';
 import { isTimePassed } from '../../../actions/taskTimeUtils';
 import { TaskCard } from '../tasks/TaskCard';
@@ -28,6 +28,9 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({
   const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [filterDays, setFilterDays] = useState<string>("30");
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const timeDropdownRef = useRef<HTMLDivElement>(null);
+
   const [evaluations, setEvaluations] = useState<Record<string, Evaluation>>(() => {
     const saved = localStorage.getItem('app_member_evaluations');
     return saved ? JSON.parse(saved) : {};
@@ -38,6 +41,17 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({
   useEffect(() => {
     localStorage.setItem('app_member_evaluations', JSON.stringify(evaluations));
   }, [evaluations]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target as Node)) {
+        setShowTimeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Normalize string để so sánh
   const normalize = (str: string) => str.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -195,6 +209,12 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({
     return getTasksForMember(selectedMember, filteredTasksByPeriod).sort((a, b) => b.id - a.id);
   }, [filteredTasksByPeriod, selectedMember, selectedMemberId]);
 
+  const timeOptions = [
+    { value: '7', label: '07 NGÀY QUA', desc: 'Dữ liệu tuần qua' },
+    { value: '14', label: '14 NGÀY QUA', desc: 'Dữ liệu nửa tháng' },
+    { value: '30', label: '30 NGÀY QUA', desc: 'Dữ liệu tháng qua' },
+  ];
+
   if (selectedMemberId && selectedMember) {
     return (
       <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-10">
@@ -245,26 +265,58 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({
             <ChevronLeft size={18} /> QUAY LẠI TỔNG QUAN
           </button>
           
-          <div className="flex items-center gap-3 bg-white pl-4 pr-1 py-1 rounded-2xl border border-slate-100 shadow-sm ml-auto h-[52px]">
-             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={14} className="text-indigo-500" /> THỜI GIAN:
-             </div>
-             <select 
-               value={filterDays}
-               onChange={(e) => setFilterDays(e.target.value)}
-               className="bg-slate-50 border-none outline-none px-4 py-2 rounded-xl text-[11px] font-black uppercase text-slate-700 cursor-pointer appearance-none text-center min-w-[100px] hover:bg-slate-100 transition-colors"
-             >
-               <option value="7">07 NGÀY</option>
-               <option value="14">14 NGÀY</option>
-               <option value="30">30 NGÀY</option>
-             </select>
+          <div className="relative ml-auto" ref={timeDropdownRef}>
+            <div 
+              onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+              className="flex items-center gap-4 bg-white pl-5 pr-4 h-[56px] rounded-[24px] border border-slate-100 shadow-sm hover:border-indigo-200 transition-all cursor-pointer group"
+            >
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <Calendar size={18} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Thời gian:</p>
+                    <p className="text-[12px] font-black text-slate-800 uppercase tracking-tight">{filterDays} NGÀY QUA</p>
+                  </div>
+               </div>
+               <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${showTimeDropdown ? 'rotate-180 text-indigo-500' : ''}`} />
+            </div>
+
+            {showTimeDropdown && (
+              <div className="absolute top-[calc(100%+12px)] right-0 w-64 bg-white rounded-[32px] border border-slate-100 shadow-2xl z-[100] p-2 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                <div className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-1">
+                  Chọn khoảng thời gian
+                </div>
+                {timeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setFilterDays(opt.value);
+                      setShowTimeDropdown(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all group ${
+                      filterDays === opt.value ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="text-left">
+                       <p className={`text-[11px] font-black uppercase tracking-tight ${filterDays === opt.value ? 'text-indigo-600' : 'text-slate-800'}`}>
+                         {opt.label}
+                       </p>
+                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{opt.desc}</p>
+                    </div>
+                    {filterDays === opt.value && <Check size={16} strokeWidth={4} className="text-indigo-600" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="text-right">
-            <h2 className="text-3xl font-[900] text-slate-900 uppercase tracking-tighter">{selectedDept.name}</h2>
-            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-1">Dữ liệu trong {filterDays} ngày qua</p>
+            <h2 className="text-3xl font-[900] text-slate-900 uppercase tracking-tighter leading-none">{selectedDept.name}</h2>
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-2">Phòng ban</p>
           </div>
         </div>
+
         <div className="space-y-4">
           {selectedDept.members.map(member => (
             <div key={member.id} className="bg-white rounded-[32px] p-6 border border-slate-50 shadow-sm hover:shadow-xl transition-all flex flex-col xl:flex-row xl:items-center gap-6 group relative border-b-4 border-b-transparent hover:border-b-indigo-500">
@@ -289,7 +341,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({
                     {member.evaluation?.excellent && <Medal size={18} className="text-amber-500 shrink-0" />}
                   </h4>
                   
-                  {/* Thay thế Role Badge bằng Thanh tiến độ xử lý công việc */}
+                  {/* Thanh tiến độ xử lý công việc */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-end">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tiến độ công việc</span>
