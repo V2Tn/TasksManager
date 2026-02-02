@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Lock, User as UserIcon, ShieldCheck, AlertCircle, Eye, EyeOff, X, Zap, Loader2, RefreshCw } from 'lucide-react';
 import { User, UserRole, StaffMember } from '../../../types';
@@ -22,6 +23,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState(false);
   
   const [recentAccounts, setRecentAccounts] = useState<RecentAccount[]>([]);
 
@@ -113,18 +115,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 selection:bg-indigo-100 font-['Lexend']">
       <div className="w-full max-w-[420px] animate-in fade-in zoom-in duration-700 flex flex-col items-center">
         
-        {/* Logo Section - Nhỏ gọn lại */}
+        {/* Logo Section - Đọc từ uploads/logo/logo.png */}
         <div className="relative mb-6 group">
           <div className="absolute inset-0 bg-indigo-500/10 blur-[60px] rounded-full scale-150"></div>
-          <div className="relative inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#5b61f1] to-[#7c3aed] rounded-[28px] text-white shadow-xl border border-white/20 transform hover:rotate-3 transition-transform duration-500">
-            <ShieldCheck size={40} strokeWidth={2} />
+          <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#5b61f1] to-[#7c3aed] rounded-[32px] text-white shadow-2xl border border-white/20 transform hover:rotate-3 transition-transform duration-500 overflow-hidden p-3">
+            {!logoError ? (
+              <img 
+                src="uploads/logo/logo.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <ShieldCheck size={48} strokeWidth={2} />
+            )}
           </div>
         </div>
 
-        {/* Brand Title - Nhỏ gọn lại */}
-        <h1 className="text-3xl md:text-4xl font-[900] text-[#0f172a] tracking-tight mb-8 uppercase">Kim Tâm Cát</h1>
+        {/* Brand Title - Lexend Font Weight 900 */}
+        <h1 className="text-3xl md:text-4xl font-[900] text-[#0f172a] tracking-tight mb-8 uppercase text-center">Kim Tâm Cát</h1>
 
-        {/* Quick Access Panel - Nhỏ gọn lại */}
+        {/* Quick Access Panel */}
         {recentAccounts.length > 0 && (
           <div className="w-full mb-8 animate-in slide-in-from-top-4 duration-1000">
             <div className="flex items-center gap-3 mb-3 px-2">
@@ -142,8 +153,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     {account.fullName.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black text-slate-900 truncate uppercase tracking-tight">{account.fullName}</p>
-                    <p className="text-[8px] font-bold text-indigo-400 uppercase mt-1 tracking-wider">{account.role.replace('_', ' ')}</p>
+                    <p className="text-[11px] font-[900] text-slate-900 truncate uppercase tracking-tight leading-none">{account.fullName}</p>
+                    <p className="text-[8px] font-bold text-indigo-400 uppercase mt-1 tracking-wider opacity-80">{account.role.replace('_', ' ')}</p>
                   </div>
                   <button 
                     onClick={(e) => removeRecent(e, account.username)}
@@ -157,7 +168,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
         )}
 
-        {/* Main Login Form Container - Thu gọn Padding */}
+        {/* Main Login Form Container */}
         <div className="w-full bg-white rounded-[40px] p-8 md:p-10 shadow-[0_30px_60px_-15px_rgba(79,70,229,0.1)] border border-slate-50 relative overflow-hidden">
           
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
@@ -187,7 +198,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-[700] text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
                   placeholder="USERNAME"
                 />
               </div>
@@ -205,7 +216,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3 bg-slate-50 border-2 border-transparent rounded-xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-bold text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#5b61f1] focus:bg-white transition-all font-[700] text-slate-800 text-sm placeholder:text-slate-300 disabled:opacity-50"
                   placeholder="••••••••"
                 />
                 <button
@@ -221,19 +232,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#5b61f1] hover:bg-[#4a4ec4] disabled:bg-slate-200 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-50 transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] mt-2"
+              className="w-full bg-[#5b61f1] hover:bg-[#4a4ec4] disabled:bg-slate-200 text-white font-[900] py-4 rounded-2xl shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] mt-2"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" strokeWidth={3} />
               ) : (
-                <span className="text-xs uppercase tracking-widest">Đăng nhập</span>
+                <span className="text-xs uppercase tracking-widest">Đăng nhập ngay</span>
               )}
             </button>
           </form>
         </div>
         
-        <p className="text-center mt-8 text-slate-400 font-black text-[9px] uppercase tracking-widest opacity-40">
-          KIM TÂM CÁT • v2.5.0
+        <p className="text-center mt-8 text-slate-400 font-black text-[9px] uppercase tracking-[0.3em] opacity-40">
+          HỆ THỐNG QUẢN TRỊ • KIM TÂM CÁT
         </p>
       </div>
       

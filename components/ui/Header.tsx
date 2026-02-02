@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, Clock, List, Layout, BarChart2, Volume2, VolumeX, Volume1, Music, Check, Settings, Users, LogOut, User as UserIcon, Briefcase, ChevronDown, UserPlus, Users2 } from 'lucide-react';
+import { Calendar, Clock, List, Layout, BarChart2, Volume2, VolumeX, Volume1, Music, Check, Settings, Users, LogOut, User as UserIcon, Briefcase, ChevronDown, UserPlus, Users2, UserRoundPen } from 'lucide-react';
 import { AVAILABLE_SOUNDS } from '../../constants';
 import { User, UserRole, StaffMember } from '../../types';
 
@@ -16,6 +16,7 @@ interface HeaderProps {
   currentUser: User | null;
   onLogout: () => void;
   onSwitchUser?: (user: User) => void;
+  onEditProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -29,7 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSoundChange,
   currentUser,
   onLogout,
-  onSwitchUser
+  onSwitchUser,
+  onEditProfile
 }) => {
   const [now, setNow] = useState(new Date());
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
@@ -247,6 +249,15 @@ export const Header: React.FC<HeaderProps> = ({
                        <p className="text-[8px] font-black text-indigo-500 uppercase mt-1 px-1.5 py-0.5 bg-indigo-50 w-fit rounded-md">{currentUser?.role}</p>
                     </div>
                     <button 
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        if (onEditProfile) onEditProfile();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-black text-indigo-600 hover:bg-indigo-50 transition-all mb-1"
+                    >
+                      <UserRoundPen size={16} strokeWidth={3} /> THÔNG TIN CÁ NHÂN
+                    </button>
+                    <button 
                       onClick={onLogout}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-black text-red-500 hover:bg-red-50 transition-all"
                     >
@@ -267,6 +278,15 @@ export const Header: React.FC<HeaderProps> = ({
                            <p className="text-[8px] font-black text-indigo-500 uppercase mt-1.5 tracking-widest">{currentUser?.role.replace('_', ' ')}</p>
                          </div>
                        </div>
+                       <button 
+                        onClick={() => {
+                          setShowSwitcher(false);
+                          if (onEditProfile) onEditProfile();
+                        }}
+                        className="w-full flex items-center justify-center gap-2 mt-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                       >
+                         <UserRoundPen size={12} strokeWidth={3} /> CHỈNH SỬA THÔNG TIN
+                       </button>
                     </div>
                     
                     <div className="max-h-60 overflow-y-auto px-1 space-y-1 scrollbar-hide">

@@ -16,12 +16,17 @@ import { StaffListView } from './components/views/admin/StaffListView';
 import { DepartmentListView } from './components/views/admin/DepartmentListView';
 import { SettingsView } from './components/views/admin/SettingsView';
 import { TeamOverview } from './components/views/team/TeamOverview';
+import { StaffDetailsModal } from './components/views/admin/StaffDetailsModal';
 import { API_CONFIG } from './config/apiConfig';
 import { SOUND_CONFIG, HARDCODED_DEPARTMENTS } from './constants';
 import { RefreshCw, CheckCircle, X } from 'lucide-react';
 
 const getTaskWebhookUrl = () => {
   return localStorage.getItem('system_task_webhook_url') || API_CONFIG.TASK_WEBHOOK_URL;
+};
+
+const getAdminWebhookUrl = () => {
+  return localStorage.getItem('system_make_webhook_url') || API_CONFIG.MAKE_STAFF_URL;
 };
 
 const App: React.FC = () => {
@@ -37,8 +42,9 @@ const App: React.FC = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // Quan trọng: Truyền user?.id vào hook để xử lý Isolation
   const { 
     tasks, 
     addTask, 
@@ -55,12 +61,25 @@ const App: React.FC = () => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Lọc task để hiển thị ở tab Công việc và Báo cáo cá nhân
-  const personalTasks = useMemo(() => {
-    if (!user) return [];
-    // Chỉ lấy những task mà User hiện tại là người thực hiện (assignee)
-    return tasks.filter(t => Number(t.assigneeId) === user.id);
-  }, [tasks, user?.id]);
+  // Tối ưu hóa việc nạp dữ liệu Profile: Đảm bảo đồng bộ giữa User session và Staff list
+  const currentUserStaffRecord = useMemo(() => {
+    if (!user) return null;
+    const found = staff.find(s => Number(s.id) === user.id);
+    if (found) return found;
+    
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      role: user.role,
+      email: '',
+      phone: '',
+      active: true,
+      department: user.departmentId || '',
+      isManager: user.isManager,
+      joinDate: new Date().toISOString().split('T')[0]
+    } as StaffMember;
+  }, [staff, user]);
 
   useEffect(() => {
     const loadData = () => {
@@ -117,12 +136,10 @@ const App: React.FC = () => {
   const handleFetchTasksById = useCallback(async (targetUser: User) => {
     const url = getTaskWebhookUrl();
     if (!url || !url.startsWith('http')) return;
-    
     try {
-      // Sử dụng targetUser thay vì user cũ để tránh race condition
       await syncTasksFromServer(url, targetUser.username, 'get_list_id_task', targetUser.id);
     } catch (e: any) {
-      console.error("Lỗi khi lấy danh sách công việc tự động:", e.message);
+      console.error("Lỗi đồng bộ tự động:", e.message);
     }
   }, [syncTasksFromServer]);
 
@@ -130,12 +147,10 @@ const App: React.FC = () => {
     if (newTab === 'tasks' && activeTab !== 'tasks' && user) {
       handleFetchTasksById(user);
     }
-    
     if (newTab === 'team' && user) {
       const url = getTaskWebhookUrl();
       fetchMasterTasks(url, user.username);
     }
-
     setActiveTab(newTab);
   };
 
@@ -146,14 +161,13 @@ const App: React.FC = () => {
       showToast("Vui lòng cấu hình URL Webhook trong tab Cấu hình", "error");
       return;
     }
-    
     setIsSyncingTasks(true);
     try {
       const synced = await syncTasksFromServer(url, user.username, 'get_list_id_task', user.id);
       if (synced && synced.length > 0) {
         showToast(`Đã đồng bộ ${synced.length} công việc.`);
       } else {
-        showToast("Không có công việc mới (Đã lọc bỏ Hoàn thành/Hủy).");
+        showToast("Không có công việc mới.");
       }
     } catch (e: any) {
       showToast("Lỗi đồng bộ: " + e.message, "error");
@@ -200,6 +214,67 @@ const App: React.FC = () => {
     showToast("Đã xóa công việc");
   };
 
+  const handleSaveProfile = async (memberData: StaffMember) => {
+    if (!user) return;
+    
+    // 1. Cập nhật Staff List (Cơ chế Upsert)
+    let updatedStaff;
+    const exists = staff.some(s => Number(s.id) === memberData.id);
+    if (exists) {
+      updatedStaff = staff.map(s => Number(s.id) === memberData.id ? memberData : s);
+    } else {
+      updatedStaff = [memberData, ...staff];
+    }
+    
+    setStaff(updatedStaff);
+    localStorage.setItem('app_staff_list_v1', JSON.stringify(updatedStaff));
+    
+    // 2. Cập nhật session hiện tại (User)
+    const updatedUser: User = {
+      ...user,
+      fullName: memberData.fullName,
+      username: memberData.username,
+      departmentId: memberData.department
+    };
+    setUser(updatedUser);
+    localStorage.setItem('current_session_user', JSON.stringify(updatedUser));
+    
+    // 3. Gửi webhook với action 'update_staff' (viết thường)
+    const adminUrl = getAdminWebhookUrl();
+    if (adminUrl && adminUrl.startsWith('http')) {
+      const dataForMake = { ...memberData };
+      if (dataForMake.joinDate) {
+        try {
+          const ts = new Date(dataForMake.joinDate).getTime();
+          if (!isNaN(ts)) (dataForMake as any).joinDate = Math.floor(ts / 1000);
+        } catch(e) {}
+      }
+
+      fetch(adminUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_staff',
+          user: user.username,
+          data: dataForMake,
+          timestamp: Math.floor(Date.now() / 1000)
+        }),
+        mode: 'cors'
+      }).catch(err => console.error("Webhook Profile Sync Error:", err));
+    }
+    
+    showToast("Thông tin đã được đồng bộ hệ thống");
+    setIsProfileModalOpen(false);
+    
+    // Phát sự kiện để Tab Nhân Viên cập nhật ngay lập tức
+    window.dispatchEvent(new Event('app_data_updated'));
+  };
+
+  const personalTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter(t => Number(t.assigneeId) === user.id);
+  }, [tasks, user?.id]);
+
   if (!user) {
     return <LoginView onLogin={(u) => {
       setUser(u);
@@ -244,6 +319,7 @@ const App: React.FC = () => {
             localStorage.setItem('current_session_user', JSON.stringify(u));
             handleFetchTasksById(u);
           }}
+          onEditProfile={() => setIsProfileModalOpen(true)}
         />
 
         {activeTab === 'tasks' && (
@@ -319,6 +395,13 @@ const App: React.FC = () => {
         {activeTab === 'departments' && <DepartmentListView />}
         {activeTab === 'settings' && <SettingsView />}
       </div>
+      
+      <StaffDetailsModal 
+        isOpen={isProfileModalOpen}
+        member={currentUserStaffRecord}
+        onClose={() => setIsProfileModalOpen(false)}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
 };
